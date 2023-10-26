@@ -135,10 +135,63 @@ struct my_stack {   // pila
 
 //declaraciones funciones gestor de pila
 struct my_stack *my_stack_init(int size);
+
 int my_stack_push(struct my_stack *stack, void *data);
-void *my_stack_pop(struct my_stack *stack);
-int my_stack_len(struct my_stack *stack);
-int my_stack_purge(struct my_stack *stack); 
+
+void *my_stack_pop(struct my_stack *stack) {
+    if (stack == NULL || stack->top == NULL) {
+        return NULL; 
+    }
+
+    // Coger el top-node actual  
+    struct my_stack_node *currentTop = stack->top;
+
+    // Actualizar puntero
+    stack->top = currentTop->next;
+
+    //Extraer dato del nodo actual
+    void *data = currentTop->data;
+
+    // Liberar nodo superior
+    free(currentTop);
+    // Dato extraido
+    return data;
+}
+
+int my_stack_len(struct my_stack *stack){
+    //Mira si el stack es null, length == 0
+    if (stack == NULL) {
+        return 0; 
+    }
+
+    int len = 0;
+    //Emepezamos desde arriba del stack
+    struct my_stack_node *current = stack->top;
+
+    while (current != NULL) {
+        len++;
+        current = current->next;
+    }
+    
+    return len;
+}
+int my_stack_purge(struct my_stack *stack){
+    my_stack_node auxiliar;
+    int bytes=0;
+    for(int i=stack->size-1,i,i--){
+        auxiliar=stack->top;
+        bytes += sizeof(auxiliar);
+        auxiliar.free();
+        stack->top=stack->top->next;
+        
+    }
+
+    stack.free();
+    bytes += sizeof(stack);
+
+    return bytes;
+}
 struct my_stack *my_stack_read(char *filename);
+
 int my_stack_write(struct my_stack *stack, char *filename);
     
