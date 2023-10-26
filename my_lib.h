@@ -169,9 +169,9 @@ int my_stack_purge(struct my_stack *stack){
         
     }
 
-    stack.free();
+    
     bytes += sizeof(stack);
-
+   stack.free();
     return bytes;
 }
 struct my_stack *my_stack_read(char *filename);
