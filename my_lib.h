@@ -161,7 +161,7 @@ int my_stack_len(struct my_stack *stack){
 int my_stack_purge(struct my_stack *stack){
     my_stack_node auxiliar;
     int bytes=0;
-    for(int i=stack->size-1,i,i--){
+    for(int i=stack->size-1,i>=0,i--){
         auxiliar=stack->top;
         bytes += sizeof(auxiliar);
         auxiliar.free();
