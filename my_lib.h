@@ -103,23 +103,6 @@ char *my_strchr(const char *str, int c) {
     return NULL;
 }
 
-int my_stack_purge(struct my_stack *stack){
-    my_stack_node auxiliar;
-    int bytes=0;
-    for(int i=stack->size-1,i,i--){
-        auxiliar=stack->top;
-        bytes += sizeof(auxiliar);
-        auxiliar.free();
-        stack->top=stack->top->next;
-        
-    }
-
-    stack.free();
-    bytes += sizeof(stack);
-
-    return bytes;
-}
-
 // char *my_strncat(char *dest, const char *src, size_t n);
 
 //structuras para gestor de pila
