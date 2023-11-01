@@ -28,17 +28,21 @@ size_t my_strlen(const char *str) {
    return len;
 }
 
-
+//Metodo para copiar un array de caracteres en otro array
 char *my_strcpy(char *dest, const char *src){
+   //Inicializamos el indice
     int i=0;
-    
+    //Bucle para pasar por todas los caracteres del array
     while (*(src+i)) { 
+       //asignamos en la direccion correspondiente el caracter
         *(dest+i)=*(src+i);
+       //Aumentamos el indice
         i++;
            
    }
+   //Finalmente ponemos el \0 al final
    *(dest+i)='\0';
-
+   
    return dest;
 }
 
