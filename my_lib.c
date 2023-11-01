@@ -11,16 +11,15 @@
  */
 size_t my_strlen(const char *str)
 {
-    size_t len = 0; // Inicializa la longitud a 0.
-    int i = 0;      // Inicializa el índice a 0.
+    size_t len = 0;
+    int i = 0;
 
-    // Mientras el carácter actual no sea el final de la cadena ('\0').
     while (str[i])
     {
-        i++;        // Incrementa el índice.
-        len++;      // Incrementa la longitud.
+        i++;
+        len++;
     }
-    return len;     // Devuelve la longitud.
+    return len;
 }
 
 /*
@@ -35,17 +34,12 @@ size_t my_strlen(const char *str)
  * retorna: un puntero a la cadena de destino dest.
  */
 char *my_strcpy(char *dest, const char *src){
-   //Inicializamos el indice
     int i=0;
-    //Bucle para pasar por todas los caracteres del array
     while (*(src+i)) { 
-       //asignamos en la direccion correspondiente el caracter
         *(dest+i)=*(src+i);
-       //Aumentamos el indice
         i++;
            
    }
-   //Finalmente ponemos el \0 al final
    *(dest+i)='\0';
    
    return dest;
@@ -65,12 +59,11 @@ char *my_strcpy(char *dest, const char *src){
  */
 int my_strcmp(const char *str1, const char *str2) {
     for (int i = 0; ; i++) {
-        // Si ambos caracteres son iguales y no son el carácter de terminación
+        
         if (str1[i] == str2[i] && str1[i] != '\0') {
             continue;
         }
         
-        // Devolvemos la diferencia entre los códigos ASCII
         return str1[i] - str2[i];
     }
 
@@ -93,20 +86,18 @@ char *my_strncpy(char *dest, const char *src, size_t n)
 {
     size_t i;
 
-    // Copia hasta que se alcance n o el final de src.
     for (i = 0; i < n && src[i] != '\0'; ++i)
     {
-        dest[i] = src[i]; // Copia el carácter.
+        dest[i] = src[i];
     }
 
-    // Rellena el resto de dest con '\0' si src es más corto que n.
     while (i < n)
     {
-        dest[i] = '\0'; // Añade el carácter de terminación.
-        i++;            // Incrementa el índice.
+        dest[i] = '\0'; 
+        i++;           
     }
 
-    return dest; // Devuelve el destino.
+    return dest; 
 }
 
 /*
@@ -185,11 +176,10 @@ char *my_strchr(const char *str, int c)
  */
 struct my_stack *my_stack_init(int size)
 {
-    // Reserva memoria para la estructura de la pila.
     struct my_stack *pila = (struct my_stack *)malloc(sizeof(struct my_stack));
 
-    pila->top = NULL; // Ponemos el top a nulo.
-    pila->size = size; // Ponemos el tamaño al parámetro. 
+    pila->top = NULL;
+    pila->size = size; 
 
     return pila; // Devuelve la pila.
 }
@@ -208,19 +198,18 @@ int my_stack_push(struct my_stack *stack, void *data)
 {
     if (stack == NULL)
     {
-        return -1; // Error: la pila no existe.
+        return -1;
     }
 
-    // Reserva memoria para el nuevo nodo de la pila.
     struct my_stack_node *new_node = (struct my_stack_node *)malloc(sizeof(struct my_stack_node));
     if (new_node == NULL)
     {
-        return -1; // Error: no hay memoria suficiente.
+        return -1;
     }
 
-    new_node->data = data; // Establece el dato del nodo.
-    new_node->next = stack->top; // Enlaza con el nodo superior actual.
-    stack->top = new_node; // Establece el nuevo nodo como el top de la pila.
+    new_node->data = data;
+    new_node->next = stack->top;
+    stack->top = new_node;
 
     return 0; // Éxito.
 }
@@ -299,29 +288,28 @@ int my_stack_purge(struct my_stack *stack)
 {
     if (stack == NULL)
     {
-        return 0; // No hay pila para liberar.
+        return 0;
     }
 
-    int freed_bytes = 0; // Contador de bytes liberados.
+    int freed_bytes = 0;
 
-    // Libera cada nodo y los datos que contiene.
     while (stack->top != NULL)
     {
         struct my_stack_node *current_node = stack->top;
-        stack->top = current_node->next; // Avanza el top.
+        stack->top = current_node->next;
 
-        freed_bytes += stack->size; // Suma el tamaño de los datos liberados.
-        free(current_node->data); // Libera los datos del nodo.
+        freed_bytes += stack->size;
+        free(current_node->data);
 
-        freed_bytes += sizeof(struct my_stack_node); // Suma el tamaño del nodo liberado.
-        free(current_node); // Libera el nodo.
+        freed_bytes += sizeof(struct my_stack_node);
+        free(current_node);
     }
 
-    // Libera la estructura de la pila.
+    
     freed_bytes += sizeof(struct my_stack);
     free(stack);
 
-    return freed_bytes; // Devuelve el total de bytes liberados.
+    return freed_bytes;
 }
 
 /*
