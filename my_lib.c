@@ -1,4 +1,4 @@
-#include "my_lib.h"  // Incluye la cabecera de la biblioteca personalizada.
+#include "my_lib.h" 
 
 /*
  * Función:  my_strlen
