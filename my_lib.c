@@ -114,24 +114,23 @@ char *my_strncpy(char *dest, const char *src, size_t n)
  */
 char *my_strcat(char *dest, const char *src)
 {
-    char *ptr = dest; // Puntero al inicio de dest.
+    char *ptr = dest;
 
-    // Avanza ptr hasta el final de dest.
+    
     while (*ptr != '\0')
     {
         ++ptr;
     }
-
-    // Copia src al final de dest.
+    
     while (*src != '\0')
     {
-        *ptr = *src; // Copia el carácter.
-        ++ptr;       // Avanza los punteros.
+        *ptr = *src;
+        ++ptr;
         ++src;
     }
-    *ptr = '\0'; // Añade el carácter de terminación.
+    *ptr = '\0';
 
-    return dest; // Devuelve el destino.
+    return dest;
 }
 
 /*
@@ -147,22 +146,22 @@ char *my_strcat(char *dest, const char *src)
  */
 char *my_strchr(const char *str, int c)
 {
-    // Itera sobre la cadena hasta encontrar c o el final.
+    
     while (*str != '\0')
     {
-        if (*str == c) // Si el carácter actual es c.
+        if (*str == c)
         {
             return (char *)str; // Devuelve un puntero a c.
         }
-        ++str; // Avanza al siguiente carácter.
+        ++str;
     }
 
     if (*str == c) // Si c es '\0'.
     {
-        return (char *)str; // Devuelve un puntero a c.
+        return (char *)str;
     }
 
-    return NULL; // c no se encontró, devuelve NULL.
+    return NULL;
 }
 
 /*
@@ -211,7 +210,7 @@ int my_stack_push(struct my_stack *stack, void *data)
     new_node->next = stack->top;
     stack->top = new_node;
 
-    return 0; // Éxito.
+    return 0;
 }
 
 /*
@@ -225,10 +224,9 @@ int my_stack_push(struct my_stack *stack, void *data)
  */
 void *my_stack_pop(struct my_stack *stack)
 {
-    // Verifica que la pila no esté vacía o no exista.
     if (stack == NULL || stack->top == NULL)
     {
-        return NULL; // No hay elementos para sacar.
+        return NULL; 
     }
 
     // Toma el nodo superior actual.
@@ -259,20 +257,19 @@ int my_stack_len(struct my_stack *stack)
 {
     if (stack == NULL)
     {
-        return 0; // La pila no existe, longitud 0.
+        return 0;
     }
 
-    int len = 0; // Inicializa la longitud a 0.
+    int len = 0;
 
-    // Itera sobre la pila para contar los elementos.
     struct my_stack_node *current = stack->top;
     while (current != NULL)
     {
-        len++;             // Incrementa la longitud.
-        current = current->next; // Avanza al siguiente nodo.
+        len++;           
+        current = current->next;
     }
 
-    return len; // Devuelve la longitud.
+    return len;
 }
 
 /*
@@ -324,11 +321,11 @@ int my_stack_purge(struct my_stack *stack)
  */
 int my_stack_write(struct my_stack *stack, char *filename) {
     if (stack == NULL || filename == NULL) {
-        errno = EINVAL; // Establecer errno para indicar un argumento inválido.
+        errno = EINVAL;
         return -1;
     }
 
-    // Abrir archivo para escritura con permisos de usuario para leer y escribir
+    // Abrimos el archivo para escritura, con permisos de usuario para leer y escribir
     int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
     if (fd == -1) {
         perror("Error abriendo el archivo para escribir");
@@ -338,7 +335,7 @@ int my_stack_write(struct my_stack *stack, char *filename) {
     // Escribir el tamaño de la pila en el archivo y verificar si se escribió correctamente
     if (write(fd, &(stack->size), sizeof(int)) != sizeof(int)) {
         perror("Error escribiendo el tamaño de la pila al archivo");
-        close(fd); // Es seguro ignorar el error de cierre en este contexto ya que ya estamos manejando un error.
+        close(fd);
         return -1;
     }
 
@@ -353,7 +350,6 @@ int my_stack_write(struct my_stack *stack, char *filename) {
         count++;
     }
 
-    // Cerrar el archivo y verificar si hubo errores al cerrar
     if (close(fd) == -1) {
         perror("Error cerrando el archivo después de escribir");
         return -1;
@@ -372,18 +368,17 @@ int my_stack_write(struct my_stack *stack, char *filename) {
  */
 struct my_stack *my_stack_read(char *filename) {
     if (filename == NULL) {
-        errno = EINVAL; // Establecer errno para indicar un argumento inválido.
+        errno = EINVAL;
         return NULL;
     }
 
-    // Abrir archivo para lectura
+    
     int fd = open(filename, O_RDONLY);
     if (fd == -1) {
         perror("Error abriendo archivo para leer");
         return NULL;
     }
 
-    // Leer el tamaño de la pila del archivo y verificar si se leyó correctamente
     int size;
     if (read(fd, &size, sizeof(int)) != sizeof(int)) {
         perror("Error leyendo el tamaño de la pila del archivo");
@@ -407,7 +402,7 @@ struct my_stack *my_stack_read(char *filename) {
         if (newDataPointers == NULL) {
             perror("Error reasignando memoria para los punteros de datos");
             free(data);
-            // Liberar punteros de datos previamente asignados antes de salir.
+            // Liberamos punteros de datos previamente asignados antes de salir.
             while (count-- > 0) {
                 free(dataPointers[count]);
             }
@@ -420,7 +415,7 @@ struct my_stack *my_stack_read(char *filename) {
         data = malloc(size);
         if (data == NULL) {
             perror("Error asignando memoria para los próximos datos");
-            // Liberar correctamente toda la memoria asignada antes de retornar.
+            // Liberamos correctamente toda la memoria asignada antes de salir.
             while (count-- > 0) {
                 free(dataPointers[count]);
             }
@@ -444,13 +439,12 @@ struct my_stack *my_stack_read(char *filename) {
         return NULL;
     }
 
-    // Apilar los datos leídos en la nueva pila
+    // Introducir los datos leídos en la nueva pila
     for (int i = count - 1; i >= 0; --i) {
         if (my_stack_push(new_stack, dataPointers[i]) == -1) {
             perror("Error apilando datos en la nueva pila");
             // Realizar la limpieza necesaria.
             my_stack_purge(new_stack);
-            //my_stack_free(new_stack); // Suponiendo que tal función existe para limpiar la pila.
             while (count-- > 0) {
                 free(dataPointers[count]);
             }
@@ -460,12 +454,10 @@ struct my_stack *my_stack_read(char *filename) {
         }
     }
     free(dataPointers); // Liberar los punteros de datos.
-
-    // Cerrar el archivo y verificar si hubo errores al cerrar
     if (close(fd) == -1) {
         perror("Error cerrando archivo después de leer");
     }
 
-    return new_stack; // Devolver la nueva pila
+    return new_stack;
 }
 
