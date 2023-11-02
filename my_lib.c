@@ -193,24 +193,25 @@ struct my_stack *my_stack_init(int size)
  *
  * retorna: 0 si el elemento se agregó con éxito, o -1 si la pila no existe o no se pudo asignar memoria.
  */
-int my_stack_push(struct my_stack *stack, void *data)
-{
-    if (stack == NULL)
-    {
-        return -1;
-    }
-
-    struct my_stack_node *new_node = (struct my_stack_node *)malloc(sizeof(struct my_stack_node));
-    if (new_node == NULL)
-    {
-        return -1;
-    }
-
-    new_node->data = data;
-    new_node->next = stack->top;
-    stack->top = new_node;
-
+int my_stack_push (struct my_stack *stack, void *data){
+    //para meter un nuevo nodo a la pila debemos mirar si la pila
+    //está inicializada
+    if ((stack!=NULL)&&(stack->size>0)){
+        //declaramos un nodo auxiliar, guardamos memoria para el y le asignamos
+        //lo necesario para añadirlo a la pila
+    struct my_stack_node *nodo=  (struct my_stack_node *) malloc(sizeof(struct my_stack_node));
+  
+     nodo->data=data;
+     nodo->next = stack->top;
+     stack->top=nodo;
+    //Fue bien
     return 0;
+
+    }else {
+        //hubo un error
+        return -1;
+    }
+
 }
 
 /*
@@ -282,16 +283,16 @@ int my_stack_len(struct my_stack *stack)
  * retorna: el número total de bytes liberados.
  */
 int my_stack_purge(struct my_stack *stack)
-{
+{    //Verificamos que el stack no este vacio
     if (stack == NULL)
     {
         return 0;
     }
 
     int freed_bytes = 0;
-
+    //Bucle de iteracion hasta dejar la pila vacia
     while (stack->top != NULL)
-    {
+    {    //Nodo auxiliar para limpiar el espacio de memoria
         struct my_stack_node *current_node = stack->top;
         stack->top = current_node->next;
 
@@ -302,7 +303,7 @@ int my_stack_purge(struct my_stack *stack)
         free(current_node);
     }
 
-    
+    //Limpiar el espacio de memoria de la pila
     freed_bytes += sizeof(struct my_stack);
     free(stack);
 
