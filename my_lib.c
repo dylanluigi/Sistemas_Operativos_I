@@ -1,3 +1,14 @@
+/*
+Práctica 1 
+Dylan Luigi Canning García
+Juan Marí González
+Antonio Marí González
+Descripción:
+1. Conjunto de funciones de tratamiento de cadenas.
+2. Gestor de pilas dinámico y genérico.
+
+*/
+
 #include "my_lib.h" 
 
 /*
@@ -461,4 +472,3 @@ struct my_stack *my_stack_read(char *filename) {
 
     return new_stack;
 }
-
