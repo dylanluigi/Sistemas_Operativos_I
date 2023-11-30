@@ -424,9 +424,8 @@ int internal_bg(char **args) {
 
 int main(int argc, char *argv[] )
 {
-    strcpy(mi_shell, argv[0]);  // Correctly store the name of the shell program
+    strcpy(mi_shell, argv[0]);
 
-    // Initialization of jobs_list[0]
     jobs_list[0].pid = 0;
     jobs_list[0].estado = 'N';
     memset(jobs_list[0].cmd, 0, sizeof(jobs_list[0].cmd));
