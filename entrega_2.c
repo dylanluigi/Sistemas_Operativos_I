@@ -12,10 +12,14 @@ Descrición:
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <errno.h>
 #define COMMAND_LINE_SIZE 1024
 #define ARGS_SIZE 64
 #define N_JOBS 64
 
+/*
+ * Declaraciones
+ */
 int check_internal(char **args);
 int parse_args(char **args, char *line);
 int execute_line(char *line);
@@ -27,11 +31,18 @@ int internal_source(char **args);
 int internal_jobs();
 static char mi_shell[COMMAND_LINE_SIZE]; 
 
+/*
+ * Struct:  info_job
+ * -------------------
+ * 
+ */
 struct info_job {
    pid_t pid;
    char estado; // ‘N’, ’E’, ‘D’, ‘F’ (‘N’: Ninguno, ‘E’: Ejecutándose y ‘D’: Detenido, ‘F’: Finalizado) 
    char cmd[COMMAND_LINE_SIZE]; // línea de comando asociada
 };
+
+
 struct info_job jobs_list [N_JOBS]; 
 
 /*
@@ -89,59 +100,60 @@ char *read_line(char *line) {
  */
 int execute_line(char *line){
     pid_t pid;
+    int status;
     char *auxiliar;
-    
-    int estado_h;
-    //guardamos la linea en otra variable
-    auxiliar=line;
+
+    auxiliar = line;
     char *args[ARGS_SIZE];
-    parse_args(args,line);
-    //no es un comando interno
-    if (check_internal(args)==0){
-        //hacemos un fork
-        pid=fork();
+    parse_args(args, line);
 
-        if (pid==0){
-            //hijo, FALTA MIRAR SI HAY FALLO
-             printf("Soy el hijo. PID: %d \n",pid);
-            execvp(args[0],args);
-           
-        }else if (pid>0){
-            printf("Soy el padre. PID: %d \n",pid);
-            pid_t pid_acabado;
-            //padre
-            jobs_list[0].estado='E';
-           //inicializamos cmd a /0
-           
-           for (int i=0;i<COMMAND_LINE_SIZE;i++){
-            jobs_list[0].cmd[i]='\0';
-            jobs_list[0].cmd[i]=*(auxiliar+i);
-            
-           }
-           printf("CMD es igual: %s",jobs_list->cmd);
-           printf("\n");
-        
-           //mirar ERROR
-        pid_acabado=wait(&estado_h);
-        printf("El hijo terminó \n");
-        printf("Estado al terminar: %d \n",estado_h);
-        printf("Mi shell es %s", mi_shell);
-        //devolvemos el jobs_list[0] a su estado anterior
-            jobs_list[0].estado='N';
-            jobs_list[0].pid=0;
-
-            
-        }else{
-            //error pid<0, hay que usar errno
-             perror("fork");
-
-       exit(-1);
-        }
-    }else{
-        //es un comando interno
-        return check_internal(args);
+    if (check_internal(args) == 0) {
+        return 0; // Command was internal and handled
     }
+
+    // External command handling
+    pid = fork();
+
+    if (pid == 0){
+        // Child process
+        execvp(args[0], args);
+        printf("%s: no se encontro la orden.\n", args[0]);
+        exit(-1);
+    } else if (pid > 0){
+
+        printf("[execute_line()→ PID padre: %d (%s)]\n",getpid(),mi_shell);
+        
+      
+
+        // Update jobs_list[0]
+        jobs_list[0].estado = 'E';
+        strncpy(jobs_list[0].cmd, auxiliar, COMMAND_LINE_SIZE - 1);
+        jobs_list[0].cmd[COMMAND_LINE_SIZE - 1] = '\0';
+        jobs_list[0].pid = pid;
+
+        printf("[execute_line()→ PID hijo: %d (%s)]\n",pid,jobs_list[0].cmd);
+
+        // Wait for child to change state
+        pid_t finished_pid = wait(&status);
+
+
+        printf("[execute_line()→ Proceso hijo %d (%s) finalizado con exit(), status: %d]\n",finished_pid,jobs_list[0].cmd,status);
+
+        // Reset jobs_list[0]
+        jobs_list[0].estado = 'F';
+        jobs_list[0].pid = 0;
+        memset(jobs_list[0].cmd, 0, sizeof(jobs_list[0].cmd));
+
+    } else {
+        perror("fork");
+        exit(-1);
+    }
+
+    return 0;
 }
+
+
+
 /*
  * Función:  
  * -------------------
@@ -155,16 +167,18 @@ int execute_line(char *line){
 int parse_args(char **args, char *line) {
     int num_tokens = 0;
     char *token = strtok(line, " \t");
+
     while (token != NULL && num_tokens < ARGS_SIZE - 1) {
-        if (token[0] == '#') { //Skipeamos los comments
+        if (token[0] == '#') { // Ignore the rest of the line if it starts with '#'
             break;
         }
         args[num_tokens++] = token;
         token = strtok(NULL, " \t");
     }
-    args[num_tokens] = NULL; //Acabamos con un null
+    args[num_tokens] = NULL; // End the arguments array with a NULL pointer
     return num_tokens;
 }
+
 
 /*
  * Función:  
@@ -181,10 +195,7 @@ int check_internal(char **args) {
         exit(0);
     }else{
         if (strcmp(args[0], "cd") == 0) {
-            
         return internal_cd(args);
-        
-    
     } else if (strcmp(args[0], "export") == 0) {
         return internal_export(args);
     } else if (strcmp(args[0], "source") == 0) {
@@ -192,9 +203,10 @@ int check_internal(char **args) {
     } else if (strcmp(args[0], "jobs") == 0) {
         return internal_jobs();
     }
-    return 0;
+    return -1;
     }
 }
+
 
 /*
  * Función:  
@@ -317,13 +329,11 @@ int internal_export(char **args) {
  * retorna:
  */
 int internal_source(char **args) {
-    // Check if the script file name is provided
     if (args[1] == NULL) {
         fprintf(stderr, "Error de sintaxis. Uso: source <nombre_fichero>\n");
         return -1;
     }
 
-    // Open the script file
     FILE *file = fopen(args[1], "r");
     if (file == NULL) {
         perror("fopen");
@@ -331,21 +341,26 @@ int internal_source(char **args) {
     }
 
     char line[COMMAND_LINE_SIZE];
-    
-    // Read and execute each line of the file
     while (fgets(line, COMMAND_LINE_SIZE, file) != NULL) {
         size_t length = strlen(line);
         if (line[length - 1] == '\n') {
-            line[length - 1] = '\0'; // Replace newline with null character
+            line[length - 1] = '\0';
         }
+
         fflush(file); // Flush file stream before executing the line
+
+        printf("[internal_source()→ LINE: %s]\n",line);
+
+        // Execute each line using execute_line function
         execute_line(line);
     }
 
-    // Close the script file
     fclose(file);
     return 0;
 }
+
+
+
 
 
 /*
@@ -406,18 +421,17 @@ int internal_bg(char **args) {
  * retorna:
  */
 
+
 int main(int argc, char *argv[] )
 {
-    jobs_list[0].pid=0;
-    jobs_list[0].estado='N';
-    for (int i=0;i<COMMAND_LINE_SIZE;i++){
-            jobs_list[0].cmd[i]='\0';
+    strcpy(mi_shell, argv[0]);  // Correctly store the name of the shell program
 
-    }
-    if(argc==2){
-        mi_shell[0]=**(argv+1);
-    }
-  char line[COMMAND_LINE_SIZE];
+    // Initialization of jobs_list[0]
+    jobs_list[0].pid = 0;
+    jobs_list[0].estado = 'N';
+    memset(jobs_list[0].cmd, 0, sizeof(jobs_list[0].cmd));
+
+    char line[COMMAND_LINE_SIZE];
     while (1)
     {
         if (read_line(line))
@@ -427,3 +441,4 @@ int main(int argc, char *argv[] )
     }
     return 0;
 }
+
