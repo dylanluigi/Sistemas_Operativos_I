@@ -549,11 +549,18 @@ void ctrlc(int signum) {
 
 void ctrlz(int signum) {
     if (jobs_list[0].pid > 0) {
-        kill(jobs_list[0].pid, SIGTSTP); // Stop the foreground job
-        jobs_list[0].estado = 'D';       // Update status to 'Detained'
-        // Add job to jobs_list
+        kill(jobs_list[0].pid, SIGTSTP); // Send SIGTSTP to the foreground job
+        jobs_list_add(jobs_list[0].pid, jobs_list[0].cmd, 'D'); // Add to jobs_list as 'Detained'
+        jobs_list[0].pid = 0;
+        jobs_list[0].estado = 'N';
+        memset(jobs_list[0].cmd, 0, sizeof(jobs_list[0].cmd));
+        printf("\n[+] Job detained: %s\n", jobs_list[0].cmd);
+        imprimir_prompt();
+        fflush(stdout);
     }
 }
+
+
 
 
 
@@ -592,6 +599,4 @@ int main(int argc, char *argv[]) {
     }
     return 0;
 }
-
-
 
