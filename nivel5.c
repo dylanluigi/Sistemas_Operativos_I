@@ -2,7 +2,7 @@
 Entrega 2
 Dylan Luigi Canning García
 Juan Marí González
-Antonio Marí González
+Antonio Marí Gonzálezf
 Descrición:
 1. Implementación Mini-Shell
 */
@@ -14,6 +14,10 @@ Descrición:
 #include <sys/wait.h>
 #include <errno.h>
 #include <signal.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+
+
 
 #define COMMAND_LINE_SIZE 1024
 #define ARGS_SIZE 64
@@ -35,10 +39,12 @@ void reaper(int signum);
 void ctrlc(int signum);
 int is_background(char **args);
 int jobs_list_add(pid_t pid, char *cmd, char estado);
-struct info_job* jobs_list_find(pid_t pid);
+int jobs_list_find(pid_t pid);
 int jobs_list_remove(pid_t pid);
 void ctrlz(int signum);
-
+int is_output_redirection(char **args);
+int internal_bg(char **args);
+int internal_fg(char **args);
 /*
  * Declaraciones de variables
  */
@@ -106,7 +112,8 @@ char *read_line(char *line) {
 }
 
 int jobs_list_add(pid_t pid, char *cmd, char estado) {
-    for (int i = 0; i < N_JOBS; i++) {
+    printf("Debug: Adding job with PID %d\n", pid);
+    for (int i = 1; i < N_JOBS; i++) {
         if (jobs_list[i].estado == 'N') { // Empty slot found
             jobs_list[i].pid = pid;
             strncpy(jobs_list[i].cmd, cmd, COMMAND_LINE_SIZE - 1);
@@ -132,13 +139,13 @@ int jobs_list_remove(pid_t pid) {
 }
 
 
-struct info_job* jobs_list_find(pid_t pid) {
+int jobs_list_find(pid_t pid) {
     for (int i = 0; i < N_JOBS; i++) {
         if (jobs_list[i].pid == pid) {
-            return &jobs_list[i]; // Return pointer to the found job
+            return i; // Return pointer to the found job
         }
     }
-    return NULL; // Job not found
+    return 0; // Job not found
 }
 
 
@@ -160,6 +167,14 @@ int execute_line(char *line) {
     parse_args(args, line);
 
     background = is_background(args); // Check for background execution
+
+    int redirection_index = is_output_redirection(args);
+    if (redirection_index != -1) {
+        int fd = open(args[redirection_index + 1], O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+        dup2(fd, STDOUT_FILENO);
+        close(fd);
+    }
+
 
     if (check_internal(args) == 0) {
         return 0; // Command was internal and handled
@@ -188,7 +203,10 @@ int execute_line(char *line) {
             jobs_list[0].cmd[COMMAND_LINE_SIZE - 1] = '\0';
 
             // Wait for the foreground process to finish
-            pause();
+            if(jobs_list[0].pid>0){
+                pause();
+            }
+            
 
             // Update job status to 'F' after completion
             jobs_list[0].pid = 0;
@@ -201,6 +219,16 @@ int execute_line(char *line) {
     }
 
     return 0;
+}
+
+int is_output_redirection(char **args) {
+    for (int i = 0; args[i] != NULL; i++) {
+        if (strcmp(args[i], ">") == 0 && args[i + 1] != NULL) {
+            args[i] = NULL; // Set '>' to NULL for execvp
+            return i; // Return index where redirection is found
+        }
+    }
+    return -1; // Return -1 if no output redirection
 }
 
 
@@ -274,6 +302,10 @@ int check_internal(char **args) {
         return internal_source(args);
     } else if (strcmp(args[0], "jobs") == 0) {
         return internal_jobs();
+    }else if (strcmp(args[0], "fg") == 0) {
+        return internal_fg(args);
+    } else if (strcmp(args[0], "bg") == 0) {
+        return internal_bg(args);
     }
     return -1;
     }
@@ -449,7 +481,7 @@ int internal_source(char **args) {
     }
 
     fclose(file);
-    return 0;
+    return 1;
 }
 
 
@@ -465,7 +497,7 @@ int internal_source(char **args) {
  */
 int internal_jobs() {
     printf("ID\tPID\tStatus\tCommand\n");
-    for (int i = 0; i < N_JOBS; i++) {
+    for (int i = 1; i < N_JOBS; i++) {
         if (jobs_list[i].estado != 'N') { // Job exists
             printf("%d\t%d\t%c\t%s\n", jobs_list[i].job_number, jobs_list[i].pid, jobs_list[i].estado, jobs_list[i].cmd);
         }
@@ -485,10 +517,30 @@ int internal_jobs() {
  * retorna:
  */
 int internal_fg(char **args) {
-    printf("Moviendo el trabajo '%s' al primer plano...\n", args[1]);
-    
+
+    printf("Debug: internal_fg called with job number %s\n", args[1]);
+
+    if (!args[1] || atoi(args[1]) >= N_JOBS || atoi(args[1]) == 0) {
+        fprintf(stderr, "Error: no existe ese trabajo\n");
+        return -1;
+    }
+
+    int job_num = atoi(args[1]);
+    if (jobs_list[job_num].estado == 'D') {
+        kill(jobs_list[job_num].pid, SIGCONT);
+        printf("[internal_fg()→ Señal SIGCONT enviada a %d (%s)]\n", jobs_list[job_num].pid, jobs_list[job_num].cmd);
+    }
+
+    jobs_list[0] = jobs_list[job_num]; // Copy to position 0 (foreground)
+    jobs_list[0].estado = 'E';
+    jobs_list_remove(job_num);
+
+    printf("%s\n", jobs_list[0].cmd);
+    pause(); // Wait for the foreground process to finish
+
     return 1;
 }
+
 
 /*
  * Función:  
@@ -501,10 +553,29 @@ int internal_fg(char **args) {
  * retorna:
  */
 int internal_bg(char **args) {
-    printf("Continuando con el trabajo '%s' en segundo plano...\n", args[1]);
-    
+
+    printf("Debug: internal_bg called with job number %s\n", args[1]);
+
+    if (!args[1] || atoi(args[1]) >= N_JOBS || atoi(args[1]) == 0) {
+        fprintf(stderr, "Error: no existe ese trabajo\n");
+        return -1;
+    }
+
+    int job_num = atoi(args[1]);
+    if (jobs_list[job_num].estado == 'E') {
+        fprintf(stderr, "Error: el trabajo ya está en segundo plano\n");
+        return -1;
+    }
+
+    kill(jobs_list[job_num].pid, SIGCONT);
+    printf("[internal_bg()→ Señal SIGCONT enviada a %d (%s)]\n", jobs_list[job_num].pid, jobs_list[job_num].cmd);
+
+    jobs_list[job_num].estado = 'E';
+    strcat(jobs_list[job_num].cmd, " &");
+
     return 1;
 }
+
 
 
 /*
@@ -516,11 +587,18 @@ void reaper(int signum) {
     int status;
 
     while ((ended = waitpid(-1, &status, WNOHANG)) > 0) {
-        struct info_job *job = jobs_list_find(ended);
-        if (job) {
-            job->estado = 'F'; // Mark job as finished
-            printf("\n[Job %d] %d finished\n", job->job_number, job->pid);
-            jobs_list_remove(ended); // Remove job from jobs_list
+
+        if(ended==jobs_list[0].pid){
+           printf("PID DEL HIJO FINALIZADO: %d, señal estatus: %d",ended,status);
+            jobs_list[0].pid=0;
+            jobs_list[0].estado='F';
+            for(int i=0;i<COMMAND_LINE_SIZE;i++){
+                jobs_list[0].cmd[i]='\0';
+            }
+        }else{
+            int pos = jobs_list_find(ended);
+            printf("PID DEL HIJO FINALIZADO: %d, señal estatus: %d",jobs_list[pos].pid,status);
+            jobs_list_remove(pos);
         }
     }
 }
@@ -536,6 +614,7 @@ void reaper(int signum) {
  *
  */
 void ctrlc(int signum) {
+
     if (jobs_list[0].pid > 0) {
         kill(jobs_list[0].pid, SIGTERM);  // Terminate the foreground process
         jobs_list[0].pid = 0;             // Reset the foreground process PID
@@ -548,6 +627,7 @@ void ctrlc(int signum) {
 }
 
 void ctrlz(int signum) {
+    printf("Debug: ctrlz called\n");
     if (jobs_list[0].pid > 0) {
         kill(jobs_list[0].pid, SIGTSTP); // Send SIGTSTP to the foreground job
         jobs_list_add(jobs_list[0].pid, jobs_list[0].cmd, 'D'); // Add to jobs_list as 'Detained'
