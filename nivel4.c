@@ -132,9 +132,9 @@ int execute_line(char *line) {
         strncpy(jobs_list[0].cmd, auxiliar, COMMAND_LINE_SIZE - 1);
         jobs_list[0].cmd[COMMAND_LINE_SIZE - 1] = '\0';
         jobs_list[0].pid = pid;
-
+         if(jobs_list[0].pid>0){
         pause(); // Wait for signal
-
+         }
         jobs_list[0].estado = 'F';
         jobs_list[0].pid = 0;
         memset(jobs_list[0].cmd, 0, sizeof(jobs_list[0].cmd));
