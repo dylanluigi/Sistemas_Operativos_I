@@ -99,15 +99,19 @@ int execute_line(char *line) {
  */
 int parse_args(char **args, char *line) {
     int num_tokens = 0;
-    char *token = strtok(line, " \t\n\r");
+    char *token = strtok(line,  " \t\n\r");
     while (token != NULL && num_tokens < MAX_ARGS - 1) {
         if (token[0] == '#') { //Skipeamos los comments
             break;
         }
+       
         args[num_tokens++] = token;
-        token = strtok(NULL, " \t\n\r");
+        token = strtok(NULL,  " \t\n\r");
+  printf("parse_args()->El token número: %d es: %s \n",num_tokens,args[num_tokens-1]);
     }
+    printf("parse_args()-> el número de tokens es: %d  \n",num_tokens);
     args[num_tokens] = NULL; //Acabamos con un null
+    
     return num_tokens;
 }
 
