@@ -160,14 +160,14 @@ int execute_line(char *line) {
  */
 int parse_args(char **args, char *line) {
     int num_tokens = 0;
-    char *token = strtok(line, " \t");
+    char *token = strtok(line, " \t\n\r");
 
     while (token != NULL && num_tokens < ARGS_SIZE - 1) {
         if (token[0] == '#') { // Ignore the rest of the line if it starts with '#'
             break;
         }
         args[num_tokens++] = token;
-        token = strtok(NULL, " \t");
+        token = strtok(NULL, " \t\n\r");
 
         if (FLAG_DEBUG_1==1)
         {
