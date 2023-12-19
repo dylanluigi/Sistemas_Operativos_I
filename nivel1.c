@@ -80,7 +80,7 @@ char *read_line(char *line) {
 }
 
 /*
- * Función:  
+ * Función: execute_line 
  * Función encargada de ejecutar la línea, en este nivel
  * solo instanciaremos el array, separaremos los argumentos
  * por tokens, mediante el parse_args y haremos comandos internos
@@ -100,7 +100,7 @@ int execute_line(char *line) {
 }
 
 /*
- * Función:  
+ * Función: parse_args
  * -------------------
  * Trocea la linea obtenida en tokens mediante la función strtok, en nuestro caso los tokens
  * estarán delimitados por los caracteres espacio, tab, salto de línea y return. Por otro lado,
@@ -132,7 +132,7 @@ int parse_args(char **args, char *line) {
 }
 
 /*
- * Función:  
+ * Función: check_internal
  * -------------------
  * Función encargada de detectar si el comando pasado es interno
  * simplemente comprueba si el primer argumento es igual al comando interno,
@@ -259,7 +259,7 @@ int internal_bg(char **args) {
 }
 
 /*
- * Función:  
+ * Función:  main
  * -------------------
  *  El main de este nivel únicamente contiene el bucle infinito
  *  que realizará el funcionamiento básico del mini shell. Simplemente
