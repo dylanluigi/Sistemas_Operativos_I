@@ -26,7 +26,7 @@ int internal_cd(char **args);
 int internal_export(char **args);
 int internal_source(char **args);
 int internal_jobs();
-
+int DEBUG_FLAGS[]={0};
 /*
  * Función:  imprimir_prompt
  * -------------------
@@ -44,12 +44,21 @@ void imprimir_prompt() {
 /*
  * Función:  read_line
  * -------------------
+ * Función encargada de imprimir el prompt y leer una linea de
+ * la consola con la función fgets. Cuando ya obtenemos esa línea y
+ * comprobamos que tiene contenido, cambiaremos el salto de línea por NULL
+ * (cosa que nos servirá para el execute line en un futuro)
+ * 
+ * También usamos la función fflush, que fuerza el vaciado del buffer para que
+ * el buffer expulse sus contenidos(por si tiene mensajes en cola) y así mostrar
+ * el prompt cuanto antes.
  * 
  *
- * dest:
- * src:
+ * line: puntero que apunta a la línea de la consola(stdin)
+ * 
  *
- * retorna:
+ * retorna: puntero que apunta a la línea pero en vez de tener salto de línea
+ * tendra null.
  */
 char *read_line(char *line) {
     imprimir_prompt();
@@ -71,14 +80,17 @@ char *read_line(char *line) {
 }
 
 /*
- * Función:  
- * -------------------
+ * Función: execute_line 
+ * Función encargada de ejecutar la línea, en este nivel
+ * solo instanciaremos el array, separaremos los argumentos
+ * por tokens, mediante el parse_args y haremos comandos internos
+ * mediante check_inernal
  * 
  *
- * dest:
- * src:
+ * line : puntero que apunta a la línea que pasamos por consola(stdin)
+ * 
  *
- * retorna:
+ * retorna: valor dado por check_internal (si es un comando interno 1 si no lo es 0)
  */
 int execute_line(char *line) {
 
@@ -88,42 +100,54 @@ int execute_line(char *line) {
 }
 
 /*
- * Función:  
+ * Función: parse_args 
  * -------------------
+ * Trocea la linea obtenida en tokens mediante la función strtok, en nuestro caso los tokens
+ * estarán delimitados por los caracteres espacio, tab, salto de línea y return. Por otro lado,
+ * tenemos en cuenta que el # representa un comentario, por tanto ignoramos los tokens posteriores a 
+ * este carácter.
  * 
  *
- * dest:
- * src:
+ * args: array de arrays en el que introduciremos los tokens
+ * line: linea introducida en consola (stdin)
  *
- * retorna:
+ * retorna: el número de tokens encontrados
  */
 int parse_args(char **args, char *line) {
     int num_tokens = 0;
     char *token = strtok(line,  " \t\n\r");
     while (token != NULL && num_tokens < MAX_ARGS - 1) {
-        if (token[0] == '#') { //Skipeamos los comments
+        if (token[0] == '#') { 
             break;
         }
        
         args[num_tokens++] = token;
         token = strtok(NULL,  " \t\n\r");
+        if (DEBUG_FLAGS[0]==1){
   printf("parse_args()->El token número: %d es: %s \n",num_tokens,args[num_tokens-1]);
+        }
     }
+      if (DEBUG_FLAGS[0]==1){
     printf("parse_args()-> el número de tokens es: %d  \n",num_tokens);
-    args[num_tokens] = NULL; //Acabamos con un null
+      }
+    args[num_tokens] = NULL; 
     
     return num_tokens;
 }
 
 /*
- * Función:  
+ * Función: check_internal
  * -------------------
+ * Función encargada de detectar si el comando pasado es interno
+ * simplemente comprueba si el primer argumento es igual al comando interno,
+ * en el caso que lo sea realizaremos dicha función. En el caso de que el comando
+ * no sea ninguna función interna se devolverá 0.
  * 
  *
- * dest:
- * src:
+ * args: array de arrays con los tokens 
+ * 
  *
- * retorna:
+ * retorna: devuelve 1 en el caso de que sea interna y 0 en el caso de que no lo sea.
  */
 int check_internal(char **args) {
     if(strcmp(args[0],"exit")==0){
@@ -143,18 +167,48 @@ int check_internal(char **args) {
 }
 
 /*
- * Función:  
- * -------------------
+ * Función:  internal_cd
  * 
+ * Esta función será realizará el comando cd, dicho comando nos cambiará el directorio de trabajo.
+ * Lo primero que realizaremos es dos arrays con dimension COMMAND_LINE_SIZE. El primero lo utilizaremos
+ * para comprobar si hemos cambiado de directorio. En el segundo, almacenaremos el directorio indicado
+ * según los casos. Los casos son(hay que recalcar que cambiamos de directorio mediante la función chdir
+ * en todos):
+ * 
+ * ---- CD para volver al directorio home--------
+ * 
+ *  Este cd no tiene un segundo argumento, es decir el comando sería así: cd NULL,
+ *  para este caso simplemente detectamos que no hay segundo argumento y almacenamos
+ * en la variable dir el directorio home, mediante la función getenv que nos devuelve
+ * la variable de entorno indicada en el parámetro. Posteriormente comprobamos
+ * si dir tiene algún contenido, y cambiamos de directorio(se hace en la línea 232)
+ * 
+ * -------- CD para un directorio específico---------
+ *  
+ *  Este cd tiene un formato de tipo : cd directorio, por tanto
+ *  lo que realizaremos es comprobar si hay segundo argumento. Nosotros
+ *  no nos preocupamos de comprobar si dicho argumento es un directorio, sino que
+ *  ejecutamos chdir y si da error significa que no será un buen argumento.
  *
- * dest:
- * src:
+ *---------- CD de caso avanzado----------------
+ *
+ * Este cd admite el paso de directorios con espacios mediante una escritura especial
+ * en este caso manejaremos estos casos : cd 'mini shell', cd "mini shell", cd mini/ shell.
+ * Para detectar este caso lo único que hemos hecho es poner los dos anteriores casos antes, de
+ * tal manera que si no es ninguno de los dos, por descarte será el tercero. 
+ * 
+ *  Lo que hemos decidido hacer en todos los casos es: concatenar los argumentos(mediante strcat) 
+ *  ponerles espacio y meterlos en la variable dir  de tal manera que dir quedaría así en los anteriores
+ *  anteriores ejemplos: 'mini shell', "mini shell", mini/ shell. Posteriormente,
+ * 
+ *  
+ * args: array de arrays en el que están los tokens
  *
  * retorna:
  */
 int internal_cd(char **args) {
     char cwd[COMMAND_LINE_SIZE];
-    char dir[COMMAND_LINE_SIZE] = {0}; // Inicializo array a zero
+    char dir[COMMAND_LINE_SIZE] = {0}; 
 
     // Caso 1 (Sin argumentos): Cambia al directorio HOME
     if (args[1] == NULL) {
@@ -201,7 +255,7 @@ int internal_cd(char **args) {
         return -1;
     }
 
-    return 0;
+    return 1;
 }
 
 
@@ -248,7 +302,7 @@ int internal_export(char **args) {
     char *new_value = getenv(name);
     printf("[internal_export()→ nuevo valor para %s: %s]\n", name, new_value ? new_value : "(null)");
 
-    return 0;
+    return 1;
 }
 
 
@@ -263,7 +317,7 @@ int internal_export(char **args) {
  * retorna:
  */
 int internal_source(char **args) {
-    printf("Ejecutar script '%s'\n", args[1]);
+    printf("internal_source()->Ejecuta las líneas de comandos del fichero nombre_fichero \n" );
     return 1;
 }
 
@@ -278,7 +332,8 @@ int internal_source(char **args) {
  * retorna:
  */
 int internal_jobs() {
-    printf("Listar todos los trabajos en segundo plano.\n");
+    printf("internal_jobs()->Muestra el PID, el estado y el nombre de los procesos que se están ejecutando en background o que han sido detenidos\n");
+
     return 1;
 }
 
@@ -293,7 +348,7 @@ int internal_jobs() {
  * retorna:
  */
 int internal_fg(char **args) {
-    printf("Moviendo el trabajo '%s' al primer plano...\n", args[1]);
+    printf("internal_fg()->Envía un trabajo del background al foreground, o reactiva la ejecución en foreground de un trabajo que había sido detenido.\n");
     
     return 1;
 }
@@ -309,20 +364,22 @@ int internal_fg(char **args) {
  * retorna:
  */
 int internal_bg(char **args) {
-    printf("Continuando con el trabajo '%s' en segundo plano...\n", args[1]);
+    printf("internal_bg->Reactiva un proceso detenido para que siga ejecutándose pero en segundo plano.\n");
     
     return 1;
 }
 
 /*
- * Función:  
+ * Función:  main
  * -------------------
+ *  El main de este nivel únicamente contiene el bucle infinito
+ *  que realizará el funcionamiento básico del mini shell. Simplemente
+ *  leerá las líneas(read_line) y posteriormente las ejecutará(execute_line).
+ *
+ * 
  * 
  *
- * dest:
- * src:
- *
- * retorna:
+ * retorna: Siempre devuelve 0.
  */
 int main() {
     char line[COMMAND_LINE_SIZE];
