@@ -26,7 +26,7 @@ int internal_cd(char **args);
 int internal_export(char **args);
 int internal_source(char **args);
 int internal_jobs();
-
+int DEBUG_FLAGS[]={0};
 /*
  * Función:  imprimir_prompt
  * -------------------
@@ -100,7 +100,7 @@ int execute_line(char *line) {
 }
 
 /*
- * Función: parse_args
+ * Función: parse_args 
  * -------------------
  * Trocea la linea obtenida en tokens mediante la función strtok, en nuestro caso los tokens
  * estarán delimitados por los caracteres espacio, tab, salto de línea y return. Por otro lado,
@@ -123,9 +123,13 @@ int parse_args(char **args, char *line) {
        
         args[num_tokens++] = token;
         token = strtok(NULL,  " \t\n\r");
+        if (DEBUG_FLAGS[0]==1){
   printf("parse_args()->El token número: %d es: %s \n",num_tokens,args[num_tokens-1]);
+        }
     }
+    if (DEBUG_FLAGS[0]==1){
     printf("parse_args()-> el número de tokens es: %d  \n",num_tokens);
+}
     args[num_tokens] = NULL; //Acabamos con un null
     
     return num_tokens;
