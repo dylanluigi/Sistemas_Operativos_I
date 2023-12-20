@@ -26,7 +26,7 @@ int internal_cd(char **args);
 int internal_export(char **args);
 int internal_source(char **args);
 int internal_jobs();
-int DEBUG_FLAGS[]={0};
+int DEBUG_FLAGS[]={0,1};
 /*
  * Función:  imprimir_prompt
  * -------------------
@@ -224,14 +224,14 @@ int internal_cd(char **args) {
     } 
     // Caso 3 (Más de un argumento): Manejar cd avanzado
     else {
-        //Concatenamos los argumentos para formar el nombre completo del directorio
+
         for (int i = 1; args[i] != NULL; i++) {
             if (i > 1) {
-                strcat(dir, " "); // Añadimos espacios entre argumentos
+                strcat(dir, " "); 
             }
-            strcat(dir, args[i]); // Añade el argumento actual
+            strcat(dir, args[i]); 
         }
-        // Manejo comillas y escapes aquí
+  
         if (dir[0] == '\"' || dir[0] == '\'') {
             size_t len = strlen(dir);
             if (dir[len - 1] == dir[0]) {
@@ -249,7 +249,9 @@ int internal_cd(char **args) {
     }
 
     if (getcwd(cwd, sizeof(cwd)) != NULL) {
+        if (DEBUG_FLAGS[1]==1){
         printf("Cambiado al directorio: %s\n", cwd);
+        }
     } else {
         perror("getcwd() error");
         return -1;
@@ -261,14 +263,28 @@ int internal_cd(char **args) {
 
 
 /*
- * Función:  
- * -------------------
+ * Función:  internal_export
+ * 
+ * Esta función lo que hace es modificar una variable de entorno con el valor pasado
+ * por parámetro, el formato sería así: export HOME=hola. 
+ * 
+ * En el caso de que no haya segundo argumento, significará que hay un error de sintaxis
+ * por tanto lo notificaremos al usuario. 
+ * 
+ * Si tiene segundo argumento, lo que haremos es:
+ * guardar el nombre en una variable y mediante la función strchar, tener un puntero que apunte
+ * al = , lo que significará que los siguientes caracteres serán el valor pasado. Posteriormente,
+ * detectaremos otro error de sintaxis, en el cual nombre es igual al valor dado por el usuario.
+ * 
+ * Por otro lado, si no hay errores, pondremos que el = será /0(para facilitar la parte del nombre) y 
+ * nos moveremos al siguiente caracter (el primero del valor). Mediante la función getenv conseguiremos
+ * la variable pedida y mediante setenv cambiaremos su contenido.
  * 
  *
- * dest:
- * src:
+ * args = array de arrays en el que tenemos todos los tokens
+ * 
  *
- * retorna:
+ * retorna:-1 si da error, 1 si funciona correctamente.
  */
 int internal_export(char **args) {
     if (args[1] == NULL) {
@@ -284,24 +300,26 @@ int internal_export(char **args) {
         return -1;
     }
 
-    // Dividir el nombre y el valor
-    *value = '\0';  // Divide la cadena en el signo igual
-    value++;        // Avanza al valor real
+  
+    *value = '\0';  
+    value++;       
 
-    // Muestra el valor actual
+   
     char *old_value = getenv(name);
+     if (DEBUG_FLAGS[1]==1){
     printf("[internal_export()→ antiguo valor para %s: %s]\n", name, old_value ? old_value : "(null)");
-
-    // Asigna el nuevo valor
+     }
+  
     if (setenv(name, value, 1) != 0) {
         perror("setenv() error");
         return -1;
     }
 
-    // Muestra el nuevo valor
+   
     char *new_value = getenv(name);
+     if (DEBUG_FLAGS[1]==1){
     printf("[internal_export()→ nuevo valor para %s: %s]\n", name, new_value ? new_value : "(null)");
-
+     }
     return 1;
 }
 
