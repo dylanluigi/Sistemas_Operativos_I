@@ -26,7 +26,7 @@ int internal_cd(char **args);
 int internal_export(char **args);
 int internal_source(char **args);
 int internal_jobs();
-int DEBUG_FLAGS[]={0};
+int DEBUG_FLAGS[]={1};
 /*
  * Función:  imprimir_prompt
  * -------------------
