@@ -92,11 +92,16 @@ char *read_line(char *line) {
  *
  * retorna: valor dado por check_internal (si es un comando interno 1 si no lo es 0)
  */
-int execute_line(char *line) {
+int execute_line(char *line)
+{
+    char *args[ARGS_SIZE];
+    int num_tokens = parse_args(args, line);
 
-    char *args[MAX_ARGS];
-    parse_args(args, line);
-    return check_internal(args);
+    if (num_tokens > 0)
+    {
+        return check_internal(args);
+    }
+    return 0;
 }
 
 /*
