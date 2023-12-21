@@ -228,7 +228,7 @@ int parse_args(char **args, char *line) {
  * args: array de arrays con los tokens 
  * 
  *
- * retorna: devuelve 1 en el caso de que sea interna y 2 en el caso de que no lo sea.
+ * retorna: devuelve 1 en el caso de que sea interna y vaya bien, -1 si hay un error dentro de la instrucción y 2 en el caso de que no lo sea.
  */
 int check_internal(char **args) {
     if(strcmp(args[0],"exit")==0){
@@ -246,7 +246,6 @@ int check_internal(char **args) {
     return 2;
     }
 }
-
 
 /*
  * Función:  internal_cd
