@@ -1,4 +1,4 @@
- /*
+/*
 Entrega 2
 Dylan Luigi Canning García
 Juan Marí González
@@ -293,7 +293,8 @@ int parse_args(char **args, char *line) {
  */
 int check_internal(char **args) {
     if(strcmp(args[0],"exit")==0){
-        exit(0);
+        exit(-1);
+     return 1;
     }else{
         if (strcmp(args[0], "cd") == 0) {
         return internal_cd(args);
