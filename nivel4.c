@@ -38,9 +38,8 @@ void ctrlc(int signum);
  * Declaraciones de variables
  */
 static char mi_shell[COMMAND_LINE_SIZE]; 
-int FLAG_DEBUG_1 = 0;
-int FLAG_DEBUG_2 = 0;
-int FLAG_DEBUG_3 = 0;
+int DEBUG_FLAGS[]={0,0,0,1};
+
 /*
  * Struct:  info_job
  * -------------------
@@ -99,60 +98,48 @@ char *read_line(char *line) {
 }
 
 /*
- * Función: execute_line 
- * Función encargada de ejecutar la línea. En este nivel ya implementamos la
- * ejecución de comandos externos. Al inicio, lo que hacemos es guardar la 
- * linea dada en una variable auxiliar debido a que parse_args altera su contenido.
- * Después de esto llamaremos a parse_args, para que los tokens estén dentro de args.
+ * Función:  
+ * -------------------
  * 
- * Ahora que ya tenemos todo esto, comprobaremos si es un comando interno mediante
- * check_internals y en el caso de que lo sea será tratado por esta función.
- * 
- * En el caso de que no tengamos un comando interno, crearemos un hijo y tendremos
- * dos ramas de procesamiento:
- * 
- * Proceso HIJO:
- *  Realiza la llamada al sistema execvp(args[0], args) 
- *  para ejecutar el comando externo solicitado. 
- *
- * Proceso PADRE:
- *  Actualizará el jobs_list[0], debido a que el proceso hijo 
- *  estará ejecutando el comando. Después, esperará a que el hijo acabe 
- *  mediante wait y actualizará el jobs_list[0], porque habremos acabado.
- * 
- * line : puntero que apunta a la línea que pasamos por consola(stdin)
+ * Añadiremos en el proceso hijo las llamadas a dos señales SIGCHLD y SIGINT. 
+ * La primera se ejecutará cuando un proceso hijo haya finalizado con el metodo reaper()
+ * y la segunda cuando presionemos el Control ^C.Más tarde en el proceso padre pondremos un
+ * pause, cuando un proceso hijo se este ejecutando en primer plano para esperar a que llegue
+ * la señal.
  * 
  *
- * retorna: siempre 0
  *
+ * retorna:
  */
 int execute_line(char *line) {
     pid_t pid;
     char *auxiliar = line;
     char *args[ARGS_SIZE];
     parse_args(args, line);
-
-   int valorcheck= check_internal(args);
-    if ((valorcheck==1||valorcheck==-1)) {
+    int valorcheck=check_internal(args);
+    if (valorcheck == 1||valorcheck==-1) {
         return 0; 
     }
+
     pid = fork();
     if (pid == 0) {
-        // Child process
+        
         signal(SIGCHLD, SIG_DFL);
-        signal(SIGINT, SIG_DFL);
+        signal(SIGINT, SIG_IGN);
         execvp(args[0], args);
         printf("%s: no se encontro la orden.\n", args[0]);
         exit(-1);
     } else if (pid > 0) {
-        // Parent process
+        
         jobs_list[0].estado = 'E';
         strncpy(jobs_list[0].cmd, auxiliar, COMMAND_LINE_SIZE - 1);
         jobs_list[0].cmd[COMMAND_LINE_SIZE - 1] = '\0';
         jobs_list[0].pid = pid;
-         if(jobs_list[0].pid>0){
-        pause(); // Wait for signal
-         }
+
+        if(jobs_list[0].pid>0){
+         pause(); 
+        } 
+
         jobs_list[0].estado = 'F';
         jobs_list[0].pid = 0;
         memset(jobs_list[0].cmd, 0, sizeof(jobs_list[0].cmd));
@@ -178,43 +165,40 @@ int execute_line(char *line) {
  */
 int parse_args(char **args, char *line) {
     int num_tokens = 0;
-    char *token = strtok(line, " \t\n\r");
-
+    char *token = strtok(line,  " \t\n\r");
     while (token != NULL && num_tokens < ARGS_SIZE - 1) {
-        if (token[0] == '#') { // Ignore the rest of the line if it starts with '#'
+        if (token[0] == '#') { 
             break;
         }
+       
         args[num_tokens++] = token;
-        token = strtok(NULL, " \t\n\r");
-
-        if (FLAG_DEBUG_1==1)
-        {
-            printf("[parse_args() → token %d: %s]\n",num_tokens,args[num_tokens-1]);
+        token = strtok(NULL,  " \t\n\r");
+        if (DEBUG_FLAGS[0]==1){
+  printf("parse_args()->El token número: %d es: %s \n",num_tokens,args[num_tokens-1]);
         }
-        
-
     }
-    args[num_tokens] = NULL; // End the arguments array with a NULL pointer
+      if (DEBUG_FLAGS[0]==1){
+    printf("parse_args()-> el número de tokens es: %d  \n",num_tokens);
+      }
+    args[num_tokens] = NULL; 
+    
     return num_tokens;
 }
 
 /*
- * Función: check_internal
+ * Función:  
  * -------------------
- * Función encargada de detectar si el comando pasado es interno
- * simplemente comprueba si el primer argumento es igual al comando interno,
- * en el caso que lo sea realizaremos dicha función. En el caso de que el comando
- * no sea ninguna función interna se devolverá 0.
  * 
  *
- * args: array de arrays con los tokens 
- * 
+ * dest:
+ * src:
  *
- * retorna: devuelve 1 en el caso de que sea interna y vaya bien, -1 si hay un error dentro de la instrucción y 2 en el caso de que no lo sea.
+ * retorna:
  */
 int check_internal(char **args) {
     if(strcmp(args[0],"exit")==0){
-        exit(0);
+        exit(-1);
+        return 1;
     }else{
         if (strcmp(args[0], "cd") == 0) {
         return internal_cd(args);
@@ -228,6 +212,7 @@ int check_internal(char **args) {
     return 2;
     }
 }
+
 
 /*
  * Función:  
@@ -282,7 +267,7 @@ int internal_cd(char **args) {
     }
 
     if (getcwd(cwd, sizeof(cwd)) != NULL) {
-        if (FLAG_DEBUG_2==1)
+        if (DEBUG_FLAGS[1]==1)
         {
             printf("[internal_cd() → PWD: %s]\n", cwd);
         }
@@ -329,7 +314,7 @@ int internal_export(char **args) {
     value++;        // Avanza al valor real
     char *old_value = getenv(name);
 
-    if (FLAG_DEBUG_2==1)
+    if (DEBUG_FLAGS[1]==1)
     {
         printf("[internal_export()→ nombre: %s]\n",name);
         printf("[internal_export()→ valor: %s]\n",old_value);
@@ -343,7 +328,7 @@ int internal_export(char **args) {
 
     // Muestra el nuevo valor
     char *new_value = getenv(name);
-    if (FLAG_DEBUG_2==1)
+    if (DEBUG_FLAGS[1]==1)
     {
         printf("[internal_export()→ antiguo valor para %s: %s]\n", name, old_value ? old_value : "(null)");
         printf("[internal_export()→ nuevo valor para %s: %s]\n", name, new_value ? new_value : "(null)");
@@ -386,7 +371,7 @@ int internal_source(char **args) {
         }
 
         fflush(file); // Flush file stream before executing the line
-        if (FLAG_DEBUG_3==1)
+        if (DEBUG_FLAGS[2]==1)
         {
             printf("[internal_source()→ LINE: %s]\n",line);
         }
@@ -398,7 +383,7 @@ int internal_source(char **args) {
     }
 
     fclose(file);
-    return 0;
+    return 1;
 }
 
 
@@ -452,45 +437,79 @@ int internal_bg(char **args) {
 
 /*
  * Función: Repaer()
+ * -------------------
+ * Función que se ejecutará cuando un proceso hijo haya terminado si se ejecuta en primer plano
+ * visulizamos el pid, los comandos y la señal y finalizamos el proceso
  * 
  */
 void reaper(int signum) {
-    if (jobs_list[0].pid > 0) {
-        int status;
-        while(waitpid(jobs_list[0].pid, &status, WNOHANG) > 0) {
-            // Update the jobs_list[0] for the terminated child process
-            jobs_list[0].pid = 0;
-            jobs_list[0].estado = 'F';
+    signal(SIGCHLD, reaper);
+    int status=0;
+    pid_t ended;
+    
+        
+    while(waitpid(jobs_list[0].pid, &status, WNOHANG) > 0) {
+        if(ended==jobs_list[0].pid){
+            if(DEBUG_FLAGS[3]==1){
+                printf("[Proceso hijo %d (%s) finalizado por señal %d]",ended,jobs_list[0].cmd,status);
+            }
+            jobs_list[0].pid=0;
+            jobs_list[0].estado='F';
+            for(int i=0;i<COMMAND_LINE_SIZE;i++){
+                jobs_list[0].cmd[i]='\0';
+            }
+        
+    
         }
     }
 }
 
 /*
- * Función:  
+ * Función:ctrlc()  
  * -------------------
+ * Funcion que implementa el control c, este comprueba si
+ * estamos en un proceso foreground si es así lo matamos y
+ * restablecemos los valores del pid y del estado, si no no hacemos
+ * nada.
  * 
- *
- * dest:
- * src:
  *
  */
 void ctrlc(int signum) {
-    if (jobs_list[0].pid > 0) {
-        kill(jobs_list[0].pid, SIGTERM);  // Terminate the foreground process
-        jobs_list[0].pid = 0;             // Reset the foreground process PID
-        jobs_list[0].estado = 'N';        // Reset the state
-    } else {
-        printf("\n");
-        imprimir_prompt();                // Re-print the prompt
-        fflush(stdout);
+    signal(SIGINT, ctrlc);
+    if(DEBUG_FLAGS[3]==1){
+            printf("\n[Soy el proceso con PID %d (%s), el proceso en foreground es %d (%s)]\n",getpid(),mi_shell,jobs_list[0].pid,jobs_list[0].cmd);
     }
+    if (jobs_list[0].pid > 0) {
+        if(strcmp(mi_shell,jobs_list[0].cmd)!=0){
+            if(DEBUG_FLAGS[3]==1){
+                printf("[Señal %d enviada a %d (%s) por %d (%s)]\n",signum,jobs_list[0].pid,jobs_list[0].cmd,getpid(),mi_shell);
+
+            }
+            kill(jobs_list[0].pid, SIGTERM);  // Terminate the foreground process
+            jobs_list[0].pid = 0;             // Reset the foreground process PID
+            jobs_list[0].estado = 'N';        // Reset the state
+        }else{
+            if(DEBUG_FLAGS[3]==1){
+                printf("[Señal SIGTERM no enviada debido a que el proceso en foreground es el shell]\n");
+
+            }
+        }
+    } else {
+        if(DEBUG_FLAGS[3]==1){
+            printf("[Señal %d no enviada a %d (%s) debido a que no hay proceso en foreground]\n",signum,getpid(),mi_shell);
+
+        }
+        
+    }
+        printf("\n");                
+        fflush(stdout);
 }
 
 
 /*
  * Función:  
  * -------------------
- * 
+ * Añadimos las llamadas de las señales respectivas a cada metodo.
  *
  * dest:
  * src:
@@ -519,5 +538,3 @@ int main(int argc, char *argv[]) {
     }
     return 0;
 }
-
-
