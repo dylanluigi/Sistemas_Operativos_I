@@ -90,7 +90,7 @@ char *read_line(char *line) {
  * line : puntero que apunta a la línea que pasamos por consola(stdin)
  * 
  *
- * retorna: valor dado por check_internal (si es un comando interno 1 si no lo es 0)
+ * retorna: valor dado por check_internal (si es un comando interno 1(-1 si hay un error) si no lo es 2)
  */
 int execute_line(char *line) {
 
@@ -147,7 +147,7 @@ int parse_args(char **args, char *line) {
  * args: array de arrays con los tokens 
  * 
  *
- * retorna: devuelve 1 en el caso de que sea interna y 0 en el caso de que no lo sea.
+ * retorna: devuelve 1 en el caso de que sea interna y vaya bien, -1 si hay un error dentro de la instrucción y 2 en el caso de que no lo sea.
  */
 int check_internal(char **args) {
     if(strcmp(args[0],"exit")==0){
@@ -162,7 +162,7 @@ int check_internal(char **args) {
     } else if (strcmp(args[0], "jobs") == 0) {
         return internal_jobs();
     }
-    return 0;
+    return 2;
     }
 }
 
