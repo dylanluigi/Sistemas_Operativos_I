@@ -448,7 +448,7 @@ void reaper(int signum) {
     pid_t ended;
     
         
-    while(waitpid(jobs_list[0].pid, &status, WNOHANG) > 0) {
+    while(-1, &status, WNOHANG) > 0) {
         if(ended==jobs_list[0].pid){
             if(DEBUG_FLAGS[3]==1){
                 printf("[Proceso hijo %d (%s) finalizado por señal %d]",ended,jobs_list[0].cmd,status);
