@@ -289,52 +289,67 @@ int check_internal(char **args) {
  */
 int internal_cd(char **args) {
     char cwd[COMMAND_LINE_SIZE];
-    char dir[COMMAND_LINE_SIZE] = {0}; 
+    char dir[COMMAND_LINE_SIZE] = {0};
 
-    // Caso 1 (Sin argumentos): Cambia al directorio HOME
     if (args[1] == NULL) {
+        // Sin argumentos, ir al directorio HOME
         strcpy(dir, getenv("HOME"));
-        if (dir[0] == '\0') {
-            fprintf(stderr, "Error: No se pudo obtener el HOME\n");
-            return -1;
-        }
-    } 
-    // Caso 2 (Un argumento): Cambia al directorio especificado
-    else if (args[2] == NULL) {
-        strcpy(dir, args[1]);
-    } 
-    // Caso 3 (Más de un argumento): Manejar cd avanzado
-    else {
+    } else {
+        // Manejar argumentos con comillas y posibles espacios escapados
+        int i = 1;
+        while (args[i] != NULL) {
+            char *arg = args[i];
+            int inQuote = 0;
+            char quoteChar = '\0';
 
-        for (int i = 1; args[i] != NULL; i++) {
-            if (i > 1) {
-                strcat(dir, " "); 
+            while (*arg) {
+                if ((*arg == '\'' || *arg == '\"') && !inQuote) {
+                    // Inicio de una cadena entrecomillada
+                    inQuote = 1;
+                    quoteChar = *arg;
+                } else if (*arg == quoteChar && inQuote) {
+                    // Fin de una cadena entrecomillada
+                    inQuote = 0;
+                } else {
+                    // Agregar el carácter si no es comilla de inicio o fin
+                    if (!inQuote || (*arg != quoteChar)) {
+                        size_t len = strlen(dir);
+                        dir[len] = *arg;
+                        dir[len + 1] = '\0';
+                    }
+                }
+                arg++;
             }
-            strcat(dir, args[i]); 
-        }
-  
-        if (dir[0] == '\"' || dir[0] == '\'') {
-            size_t len = strlen(dir);
-            if (dir[len - 1] == dir[0]) {
-                dir[len - 1] = '\0';
-                memmove(dir, dir + 1, len - 1);
+
+            // Si el último carácter del argumento actual es una barra invertida
+            // y el siguiente argumento no es NULL (caso de espacio escapado)
+            if (args[i][strlen(args[i]) - 1] == '\\' && args[i + 1] != NULL) {
+                // Reemplazar la barra invertida por un espacio
+                dir[strlen(dir) - 1] = ' ';
+            } else if (args[i + 1] != NULL) {
+                // Agregar un espacio si el siguiente argumento no es NULL
+                strcat(dir, " ");
             }
+            i++;
         }
     }
-    
 
+    // Eliminar el espacio final si existe
+    if (dir[strlen(dir) - 1] == ' ') {
+        dir[strlen(dir) - 1] = '\0';
+    }
 
+    // Cambiar de directorio
     if (chdir(dir) != 0) {
-        perror("chdir() error");
+        perror("Error en chdir()");
         return -1;
     }
 
+    // Obtener e imprimir el directorio actual de trabajo
     if (getcwd(cwd, sizeof(cwd)) != NULL) {
-        if (DEBUG_FLAGS[1]==1){
         printf("Cambiado al directorio: %s\n", cwd);
-        }
     } else {
-        perror("getcwd() error");
+        perror("Error en getcwd()");
         return -1;
     }
 
