@@ -184,11 +184,9 @@ int check_internal(char **args) {
  * si dir tiene algún contenido, y cambiamos de directorio(se hace en la línea 232)
  * 
  * -------- CD para un directorio específico---------
- *  
- *  Este cd tiene un formato de tipo : cd directorio, por tanto
- *  lo que realizaremos es comprobar si hay segundo argumento. Nosotros
- *  no nos preocupamos de comprobar si dicho argumento es un directorio, sino que
- *  ejecutamos chdir y si da error significa que no será un buen argumento.
+ * Primero comprobamos si hay segundo argumento, en el caso de que
+ * exista, entraremos en un bucle en el que revisaremos 
+ * 
  *
  *---------- CD de caso avanzado----------------
  *
