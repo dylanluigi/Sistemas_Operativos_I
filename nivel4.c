@@ -99,25 +99,42 @@ char *read_line(char *line) {
 }
 
 /*
- * Función:  
- * -------------------
+ * Función: execute_line 
+ * Función encargada de ejecutar la línea. En este nivel ya implementamos la
+ * ejecución de comandos externos. Al inicio, lo que hacemos es guardar la 
+ * linea dada en una variable auxiliar debido a que parse_args altera su contenido.
+ * Después de esto llamaremos a parse_args, para que los tokens estén dentro de args.
+ * 
+ * Ahora que ya tenemos todo esto, comprobaremos si es un comando interno mediante
+ * check_internals y en el caso de que lo sea será tratado por esta función.
+ * 
+ * En el caso de que no tengamos un comando interno, crearemos un hijo y tendremos
+ * dos ramas de procesamiento:
+ * 
+ * Proceso HIJO:
+ *  Realiza la llamada al sistema execvp(args[0], args) 
+ *  para ejecutar el comando externo solicitado. 
+ *
+ * Proceso PADRE:
+ *  Actualizará el jobs_list[0], debido a que el proceso hijo 
+ *  estará ejecutando el comando. Después, esperará a que el hijo acabe 
+ *  mediante wait y actualizará el jobs_list[0], porque habremos acabado.
+ * 
+ * line : puntero que apunta a la línea que pasamos por consola(stdin)
  * 
  *
- * dest:
- * src:
+ * retorna: siempre 0
  *
- * retorna:
- */
 int execute_line(char *line) {
     pid_t pid;
     char *auxiliar = line;
     char *args[ARGS_SIZE];
     parse_args(args, line);
 
-    if (check_internal(args) == 0) {
-        return 0; // Command was internal and handled
+   int valorcheck= check_internal(args);
+    if ((valorcheck==1||valorcheck==-1)) {
+        return 0; 
     }
-
     pid = fork();
     if (pid == 0) {
         // Child process
@@ -180,16 +197,19 @@ int parse_args(char **args, char *line) {
     return num_tokens;
 }
 
-
 /*
- * Función:  
+ * Función: check_internal
  * -------------------
+ * Función encargada de detectar si el comando pasado es interno
+ * simplemente comprueba si el primer argumento es igual al comando interno,
+ * en el caso que lo sea realizaremos dicha función. En el caso de que el comando
+ * no sea ninguna función interna se devolverá 0.
  * 
  *
- * dest:
- * src:
+ * args: array de arrays con los tokens 
+ * 
  *
- * retorna:
+ * retorna: devuelve 1 en el caso de que sea interna y vaya bien, -1 si hay un error dentro de la instrucción y 2 en el caso de que no lo sea.
  */
 int check_internal(char **args) {
     if(strcmp(args[0],"exit")==0){
@@ -204,10 +224,9 @@ int check_internal(char **args) {
     } else if (strcmp(args[0], "jobs") == 0) {
         return internal_jobs();
     }
-    return -1;
+    return 2;
     }
 }
-
 
 /*
  * Función:  
