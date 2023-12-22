@@ -176,6 +176,9 @@ int execute_line(char *line) {
         jobs_list[0].cmd[COMMAND_LINE_SIZE - 1] = '\0';
         jobs_list[0].pid = pid;
 
+       if (DEBUG_FLAGS[2]==1){
+        printf("[execute_line()→ PID hijo: %d (%s)]\n",pid,jobs_list[0].cmd);
+        }
         if(jobs_list[0].pid>0){
          pause(); 
         } 
