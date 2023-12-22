@@ -13,12 +13,17 @@ Descrición:
 #include <unistd.h>
 #include <sys/wait.h>
 #include <errno.h>
+#include <signal.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+
+
 #define COMMAND_LINE_SIZE 1024
 #define ARGS_SIZE 64
 #define N_JOBS 64
 
 /*
- * Declaraciones
+ * Declaraciones de funciones
  */
 int check_internal(char **args);
 int parse_args(char **args, char *line);
@@ -28,16 +33,33 @@ void imprimir_prompt();
 int internal_cd(char **args);
 int internal_export(char **args);
 int internal_source(char **args);
+
 int internal_jobs();
-int DEBUG_FLAGS[]={0,0,1};
+void reaper(int signum);
+void ctrlc(int signum);
+int is_background(char **args);
+int jobs_list_add(pid_t pid, char *cmd, char estado);
+int jobs_list_find(pid_t pid);
+int jobs_list_remove(int pos);
+void ctrlz(int signum);
+int is_output_redirection(char **args);
+int internal_bg(char **args);
+int internal_fg(char **args);
+
+/*
+ * Declaraciones de variables
+ */
+int  n_job=0;
 static char mi_shell[COMMAND_LINE_SIZE]; 
+int DEBUG_FLAGS[]={0,0,1,1,1};
 
 /*
  * Struct:  info_job
  * -------------------
- *  
+ * 
  */
 struct info_job {
+    int job_number;
    pid_t pid;
    char estado; // ‘N’, ’E’, ‘D’, ‘F’ (‘N’: Ninguno, ‘E’: Ejecutándose y ‘D’: Detenido, ‘F’: Finalizado) 
    char cmd[COMMAND_LINE_SIZE]; // línea de comando asociada
@@ -63,25 +85,16 @@ void imprimir_prompt() {
 /*
  * Función:  read_line
  * -------------------
- * Función encargada de imprimir el prompt y leer una linea de
- * la consola con la función fgets. Cuando ya obtenemos esa línea y
- * comprobamos que tiene contenido, cambiaremos el salto de línea por NULL
- * (cosa que nos servirá para el execute line en un futuro)
- * 
- * También usamos la función fflush, que fuerza el vaciado del buffer para que
- * el buffer expulse sus contenidos(por si tiene mensajes en cola) y así mostrar
- * el prompt cuanto antes.
  * 
  *
- * line: puntero que apunta a la línea de la consola(stdin)
- * 
+ * dest:
+ * src:
  *
- * retorna: puntero que apunta a la línea pero en vez de tener salto de línea
- * tendra null.
+ * retorna:
  */
 char *read_line(char *line) {
     imprimir_prompt();
-    fflush(stdout);
+    fflush(stdout); // Vaciamos el buffer de salida.
     if (fgets(line, COMMAND_LINE_SIZE, stdin) == NULL) {
         if (feof(stdin)) { // Comprueba si es EOF aka (Ctrl+D).
             printf("\nLogout\n");
@@ -99,77 +112,135 @@ char *read_line(char *line) {
 }
 
 /*
- * Función: execute_line 
- * Función encargada de ejecutar la línea. En este nivel ya implementamos la
- * ejecución de comandos externos. Al inicio, lo que hacemos es guardar la 
- * linea dada en una variable auxiliar debido a que parse_args altera su contenido.
- * Después de esto llamaremos a parse_args, para que los tokens estén dentro de args.
+ * Función: jobs_list_add() 
+ * -------------------
  * 
- * Ahora que ya tenemos todo esto, comprobaremos si es un comando interno mediante
- * check_internals y en el caso de que lo sea será tratado por esta función.
+ * Metodo que añade un trabajo al jobs_list en la última posición disponible
+ * del array sino se puede porque el array esta lleno devolvemos -1.
  * 
- * En el caso de que no tengamos un comando interno, crearemos un hijo y tendremos
- * dos ramas de procesamiento:
- * 
- * Proceso HIJO:
- *  Realiza la llamada al sistema execvp(args[0], args) 
- *  para ejecutar el comando externo solicitado. 
- *
- * Proceso PADRE:
- *  Actualizará el jobs_list[0], debido a que el proceso hijo 
- *  estará ejecutando el comando. Después, esperará a que el hijo acabe 
- *  mediante wait y actualizará el jobs_list[0], porque habremos acabado.
- * 
- * line : puntero que apunta a la línea que pasamos por consola(stdin)
- * 
- *
- * retorna: siempre 0
  */
-int execute_line(char *line){
-    pid_t pid;
-    int status;
-    char *auxiliar;
 
-    auxiliar = line;
+int jobs_list_add(pid_t pid, char *cmd, char estado) {
+  
+  n_job++;
+  if (n_job < N_JOBS) {
+    jobs_list[n_job].pid = pid;
+    strncpy(jobs_list[n_job].cmd, cmd, COMMAND_LINE_SIZE - 1);
+    jobs_list[n_job].cmd[COMMAND_LINE_SIZE - 1] = '\0';
+    jobs_list[n_job].estado = estado;
+    jobs_list[n_job].job_number = n_job;
+    printf("Job %s added to job_list with index %d\n", cmd, n_job);
+    return 1;
+  } else {
+    return -1; // No empty slot found
+  }
+}
+
+
+/*
+ * Función: jobs_list_remove() 
+ * -------------------
+ * 
+ * Metodo que elimina el trabajo del jobs_list con el mismo pid pasado
+ * por parametros. Eliminar significa poner el último proceso en su posición, si
+ * se ejecuta correctamente devuelve un 0 sino un -1.
+ * 
+ */
+
+int jobs_list_remove(int pos) {
+    
+    jobs_list[pos].pid = jobs_list[n_job].pid;
+    jobs_list[pos].estado = jobs_list[n_job].estado;
+    strcpy(jobs_list[pos].cmd,jobs_list[n_job].cmd);
+    n_job--;
+    return 0; // Successfully removed
+        
+    
+    
+}
+
+/*
+ * Función: jobs_list_find() 
+ * -------------------
+ * 
+ * Metodo que busca el indice del array de jobs_list en el que se encuentra
+ * el pid buscado.
+ * 
+ */
+
+int jobs_list_find(pid_t pid) {
+    for (int i = 1; i < n_job+1; i++) {
+        if (jobs_list[i].pid == pid) {
+            return i; // Return pointer to the found job
+        }
+    }
+    return 0; // Job not found
+}
+
+/*
+ * Función:  
+ * -------------------
+ * 
+ * Añadiremos en el proceso hijo las llamadas a dos señales SIGCHLD y SIGINT. 
+ * La primera se ejecutará cuando un proceso hijo haya finalizado con el metodo reaper()
+ * y la segunda cuando presionemos el Control ^C.Más tarde en el proceso padre pondremos un
+ * pause, cuando un proceso hijo se este ejecutando en primer plano para esperar a que llegue
+ * la señal.
+ * 
+ * 
+ *
+ * 
+ */
+int execute_line(char *line) {
     char *args[ARGS_SIZE];
-    parse_args(args, line);
-    int valorcheck= check_internal(args);
-    if ((valorcheck==1||valorcheck==-1)) {
-        return 0; 
+    int background;
+    char *saved_line = line;
+    pid_t pid;
+
+    int num_args = parse_args(args, line);
+
+    if (num_args==0)
+    {
+        return 0;
     }
 
-    pid = fork();
+    int valorcheck = check_internal(args);
+    if (valorcheck == 1 || valorcheck == -1)
+    {
+        return 0;
+    }    
 
-    if (pid == 0){
-        
+    background = is_background(args); // Check for background execution
+
+
+    pid = fork();
+    if (pid == 0) {
+        signal(SIGCHLD, SIG_DFL);
+        signal(SIGINT, SIG_IGN);  // Ignore SIGINT (Ctrl+C)
+        signal(SIGTSTP, SIG_IGN); // Ignore SIGTSTP (Ctrl+Z)
         execvp(args[0], args);
         printf("%s: no se encontro la orden.\n", args[0]);
         exit(-1);
-    } else if (pid > 0){
-        if (DEBUG_FLAGS[2]==1){
-        printf("[execute_line()→ PID padre: %d (%s)]\n",getpid(),mi_shell);
-        }
-      
 
+    } else if (pid > 0) {
         
-        jobs_list[0].estado = 'E';
-        strncpy(jobs_list[0].cmd, auxiliar, COMMAND_LINE_SIZE - 1);
-        jobs_list[0].cmd[COMMAND_LINE_SIZE - 1] = '\0';
-        jobs_list[0].pid = pid;
+       if (background) {
+            printf("[Running in background] PID: %d\n", pid);
+            jobs_list_add(pid, saved_line, 'E'); // Add job to jobs_list
+            printf("[Added job %s to job_list with PID %d and index of job %d]\n", saved_line,pid,n_job);
+        } else {
+            // Foreground process
+            jobs_list[0].pid = pid;
+            jobs_list[0].estado = 'E';
+            strncpy(jobs_list[0].cmd, line, COMMAND_LINE_SIZE - 1);
+            jobs_list[0].cmd[COMMAND_LINE_SIZE - 1] = '\0';
 
-        if (DEBUG_FLAGS[2]==1){
-        printf("[execute_line()→ PID hijo: %d (%s)]\n",pid,jobs_list[0].cmd);
+            // Wait for the foreground process to finish
+            if(jobs_list[0].pid>0){
+                pause();
+            }
+        
         }
-       
-        pid_t finished_pid = wait(&status);
-
-        if (DEBUG_FLAGS[2]==1){
-        printf("[execute_line()→ Proceso hijo %d (%s) finalizado con exit(), status: %d]\n",finished_pid,jobs_list[0].cmd,status);
-        }
-        jobs_list[0].estado = 'F';
-        jobs_list[0].pid = 0;
-        memset(jobs_list[0].cmd, 0, sizeof(jobs_list[0].cmd));
-
     } else {
         perror("fork");
         exit(-1);
@@ -179,20 +250,38 @@ int execute_line(char *line){
 }
 
 
+/*
+ * Función:is_background(char **args)  
+ * -------------------
+ * 
+ * Función que devuelve 1 si es un comando en background y 0 sino.
+ * Si es un metodo en background elimina el último caracter de
+ * los argumentos es decir el "&"
+ *
+ * retorna:
+ */
+
+int is_background(char **args) {
+    int i;
+    for(i = 0; args[i] != NULL; i++);
+
+    if (i > 0 && strcmp(args[i-1], "&") == 0) {
+        args[i-1] = NULL;  // Remove '&' from args
+        return 1;          // True: It's a background job
+    }
+    return 0;              // False: It's not a background job
+}
+
 
 /*
- * Función: parse_args 
+ * Función:  
  * -------------------
- * Trocea la linea obtenida en tokens mediante la función strtok, en nuestro caso los tokens
- * estarán delimitados por los caracteres espacio, tab, salto de línea y return. Por otro lado,
- * tenemos en cuenta que el # representa un comentario, por tanto ignoramos los tokens posteriores a 
- * este carácter.
  * 
  *
- * args: array de arrays en el que introduciremos los tokens
- * line: linea introducida en consola (stdin)
+ * dest:
+ * src:
  *
- * retorna: el número de tokens encontrados
+ * retorna:
  */
 int parse_args(char **args, char *line) {
     int num_tokens = 0;
@@ -208,31 +297,28 @@ int parse_args(char **args, char *line) {
   printf("parse_args()->El token número: %d es: %s \n",num_tokens,args[num_tokens-1]);
         }
     }
-    if (DEBUG_FLAGS[0]==1){
+      if (DEBUG_FLAGS[0]==1){
     printf("parse_args()-> el número de tokens es: %d  \n",num_tokens);
-}
-    args[num_tokens] = NULL; //Acabamos con un null
+      }
+    args[num_tokens] = NULL; 
     
     return num_tokens;
 }
 
 /*
- * Función: check_internal
+ * Función:  
  * -------------------
- * Función encargada de detectar si el comando pasado es interno
- * simplemente comprueba si el primer argumento es igual al comando interno,
- * en el caso que lo sea realizaremos dicha función. En el caso de que el comando
- * no sea ninguna función interna se devolverá 0.
  * 
  *
- * args: array de arrays con los tokens 
- * 
+ * dest:
+ * src:
  *
- * retorna: devuelve 1 en el caso de que sea interna y vaya bien, -1 si hay un error dentro de la instrucción y 2 en el caso de que no lo sea.
+ * retorna:
  */
 int check_internal(char **args) {
     if(strcmp(args[0],"exit")==0){
-        exit(0);
+        exit(-1);
+        return 1;
     }else{
         if (strcmp(args[0], "cd") == 0) {
         return internal_cd(args);
@@ -247,43 +333,14 @@ int check_internal(char **args) {
     }
 }
 
+
 /*
- * Función:  internal_cd
+ * Función:  
+ * -------------------
  * 
- * Esta función será realizará el comando cd, dicho comando nos cambiará el directorio de trabajo.
- * Lo primero que realizaremos es dos arrays con dimension COMMAND_LINE_SIZE. El primero lo utilizaremos
- * para comprobar si hemos cambiado de directorio. En el segundo, almacenaremos el directorio indicado
- * según los casos. Los casos son(hay que recalcar que cambiamos de directorio mediante la función chdir
- * en todos):
- * 
- * ---- CD para volver al directorio home--------
- * 
- *  Este cd no tiene un segundo argumento, es decir el comando sería así: cd NULL,
- *  para este caso simplemente detectamos que no hay segundo argumento y almacenamos
- * en la variable dir el directorio home, mediante la función getenv que nos devuelve
- * la variable de entorno indicada en el parámetro. Posteriormente comprobamos
- * si dir tiene algún contenido, y cambiamos de directorio(se hace en la línea 232)
- * 
- * -------- CD para un directorio específico---------
- *  
- *  Este cd tiene un formato de tipo : cd directorio, por tanto
- *  lo que realizaremos es comprobar si hay segundo argumento. Nosotros
- *  no nos preocupamos de comprobar si dicho argumento es un directorio, sino que
- *  ejecutamos chdir y si da error significa que no será un buen argumento.
  *
- *---------- CD de caso avanzado----------------
- *
- * Este cd admite el paso de directorios con espacios mediante una escritura especial
- * en este caso manejaremos estos casos : cd 'mini shell', cd "mini shell", cd mini/ shell.
- * Para detectar este caso lo único que hemos hecho es poner los dos anteriores casos antes, de
- * tal manera que si no es ninguno de los dos, por descarte será el tercero. 
- * 
- *  Lo que hemos decidido hacer en todos los casos es: concatenar los argumentos(mediante strcat) 
- *  ponerles espacio y meterlos en la variable dir  de tal manera que dir quedaría así en los anteriores
- *  anteriores ejemplos: 'mini shell', "mini shell", mini/ shell. Posteriormente,
- * 
- *  
- * args: array de arrays en el que están los tokens
+ * dest:
+ * src:
  *
  * retorna:
  */
@@ -360,28 +417,14 @@ int internal_cd(char **args) {
 
 
 /*
- * Función:  internal_export
- * 
- * Esta función lo que hace es modificar una variable de entorno con el valor pasado
- * por parámetro, el formato sería así: export HOME=hola. 
- * 
- * En el caso de que no haya segundo argumento, significará que hay un error de sintaxis
- * por tanto lo notificaremos al usuario. 
- * 
- * Si tiene segundo argumento, lo que haremos es:
- * guardar el nombre en una variable y mediante la función strchar, tener un puntero que apunte
- * al = , lo que significará que los siguientes caracteres serán el valor pasado. Posteriormente,
- * detectaremos otro error de sintaxis, en el cual nombre es igual al valor dado por el usuario.
- * 
- * Por otro lado, si no hay errores, pondremos que el = será /0(para facilitar la parte del nombre) y 
- * nos moveremos al siguiente caracter (el primero del valor). Mediante la función getenv conseguiremos
- * la variable pedida y mediante setenv cambiaremos su contenido.
+ * Función:  
+ * -------------------
  * 
  *
- * args = array de arrays en el que tenemos todos los tokens
- * 
+ * dest:
+ * src:
  *
- * retorna:-1 si da error, 1 si funciona correctamente.
+ * retorna:
  */
 int internal_export(char **args) {
     if (args[1] == NULL) {
@@ -397,49 +440,47 @@ int internal_export(char **args) {
         return -1;
     }
 
-  
-    *value = '\0';  
-    value++;       
-
-   
+    // Dividir el nombre y el valor
+    *value = '\0';  // Divide la cadena en el signo igual
+    value++;        // Avanza al valor real
     char *old_value = getenv(name);
-     if (DEBUG_FLAGS[1]==1){
-    printf("[internal_export()→ antiguo valor para %s: %s]\n", name, old_value ? old_value : "(null)");
-     }
-  
+
+    if (DEBUG_FLAGS[1]==1)
+    {
+        printf("[internal_export()→ nombre: %s]\n",name);
+        printf("[internal_export()→ valor: %s]\n",old_value);
+    }
+    
+    // Asigna el nuevo valor
     if (setenv(name, value, 1) != 0) {
         perror("setenv() error");
         return -1;
     }
 
-   
+    // Muestra el nuevo valor
     char *new_value = getenv(name);
-     if (DEBUG_FLAGS[1]==1){
-    printf("[internal_export()→ nuevo valor para %s: %s]\n", name, new_value ? new_value : "(null)");
-     }
+    if (DEBUG_FLAGS[1]==1)
+    {
+        printf("[internal_export()→ antiguo valor para %s: %s]\n", name, old_value ? old_value : "(null)");
+        printf("[internal_export()→ nuevo valor para %s: %s]\n", name, new_value ? new_value : "(null)");
+    }
+    
+    
+    
+
     return 1;
 }
 
 
 /*
- * Función: internal_source  
- * 
- * Esta función lee un fichero y ejecuta los comandos encontrados
- * en el mismo.
- * 
- * Para hacer esto, primero comprobamos si existe segundo token,
- * en el caso de que exista, abrimos el fichero con el segundo de argumento,
- * si nos pasan algo que no sea un fichero la apertura nos dará error, si
- * esto no ocurre haremos un bucle en el que iremos leyendo línea por línea
- * el fichero. Después de esto, hacemos un fflush( para vaciar el buffer)
- * y ejecutamos la linea leída.
- * 
+ * Función:  
+ * -------------------
  * 
  *
- * 
- * 
+ * dest:
+ * src:
  *
- * retorna: 1 si funciona, -1 si hay un error.
+ * retorna:
  */
 int internal_source(char **args) {
     if (args[1] == NULL) {
@@ -461,9 +502,13 @@ int internal_source(char **args) {
         }
 
         fflush(file); // Flush file stream before executing the line
-        if (DEBUG_FLAGS[2]==1){
-        printf("[internal_source()→ LINE: %s]\n",line);
+        if (DEBUG_FLAGS[2]==1)
+        {
+            printf("[internal_source()→ LINE: %s]\n",line);
         }
+        
+        
+
         // Execute each line using execute_line function
         execute_line(line);
     }
@@ -473,23 +518,22 @@ int internal_source(char **args) {
 }
 
 
-
-
-
 /*
- * Función:  
+ * Función:internal_jobs()  
  * -------------------
  * 
- *
- * dest:
- * src:
- *
- * retorna:
+ * Metodo que muestra el array de jobs_list que esten en estado
+ * detenido o ejecutando.
  */
 int internal_jobs() {
-    printf("Listar todos los trabajos en segundo plano.\n");
+    printf("ID\tPID\tStatus\tCommand\n");
+    for (int i = 1; i <= n_job; i++) {
+    printf("[%d]\t%d\t%c\t%s\n", jobs_list[i].job_number, jobs_list[i].pid, jobs_list[i].estado, jobs_list[i].cmd);
+    }
     return 1;
 }
+
+
 
 /*
  * Función:  
@@ -523,39 +567,149 @@ int internal_bg(char **args) {
     return 1;
 }
 
+
+
 /*
- * Función:  main
+ * Función: Repaer()
  * -------------------
- *  El main de este nivel ya contiene más elementos
- *  aparte del bucle de funcionamiento del mini_shell.
+ * Función que se ejecutará cuando un proceso hijo haya terminado si se ejecuta en primer plano
+ * visulizamos el pid, los comandos y la señal y finalizamos el proceso.Sino buscamos donde se posiciona
+ * en el array de jobs lo visualizamos y lo eliminamos.
  * 
- *  Antes de este bucle guardamos el comando de ejecución del minishell
- *  (el cual visualizaremos en execute_line). Posteriormente, inicializaremos
- *  los valores para la posición 0(foreground) del jobs_list. Por otro lado, 
- *  el memset lo usamos para inicializar a /0 el atributo cmd de jobs_list.
- *  
- *  
+ */
+void reaper(int signum)
+{
+    signal(SIGCHLD, reaper); // Reinstall the signal handler
+    int status = 0;
+    pid_t ended;
+
+    while ((ended = waitpid(-1, &status, WNOHANG)) > 0)
+    {
+        if (ended == jobs_list[0].pid)
+        { // Check if the ended process is the foreground process
+            if (DEBUG_FLAGS[3])
+            {
+                printf("[Proceso hijo %d (%s) finalizado por señal %d]\n", ended, jobs_list[0].cmd, WTERMSIG(status));
+            }
+            jobs_list[0].pid = 0;                           // Reset the foreground job slot
+            jobs_list[0].estado = 'N';                      // Set estado to 'N' for Ninguno, since no job is running
+            memset(jobs_list[0].cmd, 0, COMMAND_LINE_SIZE); // Clear the command
+        }
+        else
+        {                                    // The ended process is a background process
+            int pos = jobs_list_find(ended); // Find the job in the jobs_list
+            // If the process was found
+            printf("[Background process %d (%s) finished with status %d]\n", jobs_list[pos].pid, jobs_list[pos].cmd, WEXITSTATUS(status));
+            jobs_list_remove(pos); // Remove the job from the jobs_list
+        }
+    }
+}
+
+
+
+/*
+ * Función:ctrlc()  
+ * -------------------
+ * Funcion que implementa el control c, este comprueba si
+ * estamos en un proceso foreground si es así lo matamos y
+ * restablecemos los valores del pid y del estado, si no no hacemos
+ * nada.
+ * 
  *
- * 
+ */
+void ctrlc(int signum) {
+    signal(SIGINT, ctrlc); // Re-establish the signal handler
+
+    if (jobs_list[0].pid > 0) {
+        if (strcmp(mi_shell, jobs_list[0].cmd) != 0) {
+            printf("[Señal %d enviada a %d (%s) por %d (%s)]\n", signum, jobs_list[0].pid, jobs_list[0].cmd, getpid(), mi_shell);
+            kill(jobs_list[0].pid, SIGTERM); // Terminate the foreground process
+            jobs_list[0].pid = 0; // Reset the foreground process PID
+            jobs_list[0].estado = 'N'; // Reset the state
+        } else {
+            printf("[Señal SIGTERM no enviada debido a que el proceso en foreground es el shell]\n");
+        }
+    } else {
+        printf("[Señal %d no enviada a %d (%s) debido a que no hay proceso en foreground]\n", signum, getpid(), mi_shell);
+    }
+    
+    printf("\n");
+    imprimir_prompt(); // Re-print the prompt
+    fflush(stdout);
+}
+
+
+/*
+ * Función:ctrlz()  
+ * -------------------
+ * Funcion que implementa el comando CONTROL Z(^Z) en el que si estamos en un proceso
+ * foreground y no es el minishell acabamos la ejecución del programa mandando una señal
+ * a partir del metodo kill.
  * 
  *
- * retorna: Siempre devuelve 0.
+ */
+void ctrlz(int signum) {
+    signal(SIGTSTP, ctrlz);
+
+    if (jobs_list[0].pid > 0) {
+        if (strcmp(mi_shell, jobs_list[0].cmd) != 0) {
+            kill(jobs_list[0].pid, SIGSTOP); // Send SIGTSTP to the foreground job
+            printf("[Sent STP signal to PID %d]",jobs_list[0].pid);
+
+            if (DEBUG_FLAGS[4] == 1) {
+                printf("\n[+] Job detained: %s\n", jobs_list[0].cmd);
+            }
+            jobs_list[0].estado='D';
+            // Add to jobs_list as 'Detained' before resetting jobs_list[0]
+            jobs_list_add(jobs_list[0].pid, jobs_list[0].cmd, jobs_list[0].estado);
+            
+            // Resetting jobs_list[0]
+            jobs_list[0].pid = 0;
+            jobs_list[0].estado = 'N';
+            memset(jobs_list[0].cmd, '\0', sizeof(jobs_list[0].cmd));
+        } else {
+            if (DEBUG_FLAGS[4] == 1) {
+                printf("[Señal SIGSTOP no enviada debido a que el proceso en foreground es el shell]\n");
+            }
+        }
+    } else {
+        if (DEBUG_FLAGS[4] == 1) {
+            printf("[Señal SIGSTOP no enviada debido a que no hay proceso en foreground]\n");
+        }
+    }
+
+    imprimir_prompt();
+    fflush(stdout);
+}
+
+
+/*
+ * Función:  
+ * -------------------
+ * Añadimos las llamadas de las señales respectivas a cada metodo.
+ *
+ * dest:
+ * src:
+ *
+ * retorna:
  */
 
 
-int main(int argc, char *argv[] )
-{
-    strcpy(mi_shell, argv[0]); 
+int main(int argc, char *argv[]) {
+    strcpy(mi_shell, argv[0]);
 
+    // Initialization of jobs_list[0]
     jobs_list[0].pid = 0;
     jobs_list[0].estado = 'N';
-    memset(jobs_list[0].cmd, 0, sizeof(jobs_list[0].cmd));
+    memset(jobs_list[0].cmd, '\0', sizeof(jobs_list[0].cmd));
 
+    // Set signal handlers
+    signal(SIGCHLD, reaper);
+    signal(SIGINT, ctrlc);
+    signal(SIGTSTP, ctrlz);  // For handling Ctrl+Z
     char line[COMMAND_LINE_SIZE];
-    while (1)
-    {
-        if (read_line(line))
-        {
+    while (1) {
+        if (read_line(line)) {
             execute_line(line);
         }
     }
