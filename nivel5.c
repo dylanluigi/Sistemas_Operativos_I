@@ -344,6 +344,39 @@ int parse_args(char **args, char *line) {
 }
 
 /*
+ * Función: check_internal
+ * -------------------
+ * Función encargada de detectar si el comando pasado es interno
+ * simplemente comprueba si el primer argumento es igual al comando interno,
+ * en el caso que lo sea realizaremos dicha función. En el caso de que el comando
+ * no sea ninguna función interna se devolverá 0.
+ * 
+ *
+ * args: array de arrays con los tokens 
+ * 
+ *
+ * retorna: devuelve 1 en el caso de que sea interna y vaya bien, -1 si hay un error dentro de la instrucción y 2 en el caso de que no lo sea.
+ */
+int check_internal(char **args) {
+    if(strcmp(args[0],"exit")==0){
+        exit(-1);
+        return 1;
+    }else{
+        if (strcmp(args[0], "cd") == 0) {
+        return internal_cd(args);
+    } else if (strcmp(args[0], "export") == 0) {
+        return internal_export(args);
+    } else if (strcmp(args[0], "source") == 0) {
+        return internal_source(args);
+    } else if (strcmp(args[0], "jobs") == 0) {
+        return internal_jobs();
+    }
+    return 2;
+    }
+}
+
+
+/*
  * Función:  internal_cd
  *
  * Esta función será realizará el comando cd, dicho comando nos cambiará el directorio de trabajo.
@@ -378,35 +411,6 @@ int parse_args(char **args, char *line) {
  * args: array de arrays en el que están los tokens
  *
  * retorna: devuelve 1, -1 si hay error
- */
-int check_internal(char **args) {
-    if(strcmp(args[0],"exit")==0){
-        exit(-1);
-        return 1;
-    }else{
-        if (strcmp(args[0], "cd") == 0) {
-        return internal_cd(args);
-    } else if (strcmp(args[0], "export") == 0) {
-        return internal_export(args);
-    } else if (strcmp(args[0], "source") == 0) {
-        return internal_source(args);
-    } else if (strcmp(args[0], "jobs") == 0) {
-        return internal_jobs();
-    }
-    return 2;
-    }
-}
-
-
-/*
- * Función:  
- * -------------------
- * 
- *
- * dest:
- * src:
- *
- * retorna:
  */
 int internal_cd(char **args) {
     char cwd[COMMAND_LINE_SIZE];
@@ -551,15 +555,27 @@ int internal_export(char **args) {
 
 
 /*
- * Función:  
- * -------------------
+ * Función: internal_source  
+ * 
+ * Esta función lee un fichero y ejecuta los comandos encontrados
+ * en el mismo.
+ * 
+ * Para hacer esto, primero comprobamos si existe segundo token,
+ * en el caso de que exista, abrimos el fichero con el segundo de argumento,
+ * si nos pasan algo que no sea un fichero la apertura nos dará error, si
+ * esto no ocurre haremos un bucle en el que iremos leyendo línea por línea
+ * el fichero. Después de esto, hacemos un fflush( para vaciar el buffer)
+ * y ejecutamos la linea leída.
+ * 
  * 
  *
- * dest:
- * src:
+ * 
+ * 
  *
- * retorna:
+ * retorna: 1 si funciona, -1 si hay un error.
  */
+
+
 int internal_source(char **args) {
     if (args[1] == NULL) {
         fprintf(stderr, "Error de sintaxis. Uso: source <nombre_fichero>\n");
