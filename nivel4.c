@@ -182,7 +182,9 @@ int execute_line(char *line) {
         if(jobs_list[0].pid>0){
          pause(); 
         } 
-
+      if (DEBUG_FLAGS[2]==1){
+        printf("[execute_line()→ Proceso hijo %d (%s) finalizado con exit(), status: %d]\n",finished_pid,jobs_list[0].cmd,status);
+        }
         
     } else {
         perror("fork");
