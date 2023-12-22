@@ -109,16 +109,36 @@ char *read_line(char *line) {
 /*
  * Función:  
  * -------------------
+ * Función encargada de ejecutar la línea. En este nivel ya implementamos la
+ * ejecución de comandos externos. Al inicio, lo que hacemos es guardar la 
+ * linea dada en una variable auxiliar debido a que parse_args altera su contenido.
+ * Después de esto llamaremos a parse_args, para que los tokens estén dentro de args.
  * 
+ * Ahora que ya tenemos todo esto, comprobaremos si es un comando interno mediante
+ * check_internals y en el caso de que lo sea será tratado por esta función.
+ * 
+ * En el caso de que no tengamos un comando interno, crearemos un hijo y tendremos
+ * dos ramas de procesamiento:
+ * 
+ * Proceso HIJO:
+ *  Realiza la llamada al sistema execvp(args[0], args) 
+ *  para ejecutar el comando externo solicitado. 
  * Añadiremos en el proceso hijo las llamadas a dos señales SIGCHLD y SIGINT. 
  * La primera se ejecutará cuando un proceso hijo haya finalizado con el metodo reaper()
- * y la segunda cuando presionemos el Control ^C.Más tarde en el proceso padre pondremos un
+ * y la segunda cuando presionemos el Control ^C.
+ *
+ * Proceso PADRE:
+ *  Actualizará el jobs_list[0], debido a que el proceso hijo 
+ *  estará ejecutando el comando. Después, esperará a que el hijo acabe 
+ *  mediante wait y actualizará el jobs_list[0], porque habremos acabado.
+ * Más tarde en el proceso padre pondremos un
  * pause, cuando un proceso hijo se este ejecutando en primer plano para esperar a que llegue
  * la señal.
+ *
+ * line : puntero que apunta a la línea que pasamos por consola(stdin)
  * 
  *
- *
- * retorna:
+ * retorna: siempre 0
  */
 int execute_line(char *line) {
     pid_t pid;
