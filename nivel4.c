@@ -107,7 +107,7 @@ char *read_line(char *line) {
 }
 
 /*
- * Función:  
+ * Función: execute_line  
  * -------------------
  * Función encargada de ejecutar la línea. En este nivel ya implementamos la
  * ejecución de comandos externos. Al inicio, lo que hacemos es guardar la 
