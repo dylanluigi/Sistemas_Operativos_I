@@ -87,12 +87,21 @@ void imprimir_prompt()
 /*
  * Función:  read_line
  * -------------------
+ * Función encargada de imprimir el prompt y leer una linea de
+ * la consola con la función fgets. Cuando ya obtenemos esa línea y
+ * comprobamos que tiene contenido, cambiaremos el salto de línea por NULL
+ * (cosa que nos servirá para el execute line en un futuro)
+ * 
+ * También usamos la función fflush, que fuerza el vaciado del buffer para que
+ * el buffer expulse sus contenidos(por si tiene mensajes en cola) y así mostrar
+ * el prompt cuanto antes.
+ * 
  *
+ * line: puntero que apunta a la línea de la consola(stdin)
+ * 
  *
- * dest:
- * src:
- *
- * retorna:
+ * retorna: puntero que apunta a la línea pero en vez de tener salto de línea
+ * tendra null.
  */
 char *read_line(char *line)
 {
