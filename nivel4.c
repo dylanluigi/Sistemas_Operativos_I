@@ -168,7 +168,9 @@ int execute_line(char *line) {
         printf("%s: no se encontro la orden.\n", args[0]);
         exit(-1);
     } else if (pid > 0) {
-        
+        if (DEBUG_FLAGS[2]==1){
+        printf("[execute_line()→ PID padre: %d (%s)]\n",getpid(),mi_shell);
+        }
         jobs_list[0].estado = 'E';
         strncpy(jobs_list[0].cmd, auxiliar, COMMAND_LINE_SIZE - 1);
         jobs_list[0].cmd[COMMAND_LINE_SIZE - 1] = '\0';
