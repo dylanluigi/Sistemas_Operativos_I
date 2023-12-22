@@ -423,14 +423,24 @@ int internal_export(char **args) {
 
 
 /*
- * Función:  
- * -------------------
+ * Función: internal_source  
+ * 
+ * Esta función lee un fichero y ejecuta los comandos encontrados
+ * en el mismo.
+ * 
+ * Para hacer esto, primero comprobamos si existe segundo token,
+ * en el caso de que exista, abrimos el fichero con el segundo de argumento,
+ * si nos pasan algo que no sea un fichero la apertura nos dará error, si
+ * esto no ocurre haremos un bucle en el que iremos leyendo línea por línea
+ * el fichero. Después de esto, hacemos un fflush( para vaciar el buffer)
+ * y ejecutamos la linea leída.
+ * 
  * 
  *
- * dest:
- * src:
+ * 
+ * 
  *
- * retorna:
+ * retorna: 1 si funciona, -1 si hay un error.
  */
 int internal_source(char **args) {
     if (args[1] == NULL) {
