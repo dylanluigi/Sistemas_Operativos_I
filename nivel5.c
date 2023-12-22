@@ -693,7 +693,9 @@ void reaper(int signum)
         {                                    // The ended process is a background process
             int pos = jobs_list_find(ended); // Find the job in the jobs_list
             // If the process was found
+            if(DEBUG_FLAGS[4]==1){
             printf("[Background process %d (%s) finished with status %d]\n", jobs_list[pos].pid, jobs_list[pos].cmd, WEXITSTATUS(status));
+            }
             jobs_list_remove(pos); // Remove the job from the jobs_list
         }
     }
