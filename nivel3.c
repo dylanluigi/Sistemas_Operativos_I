@@ -532,7 +532,8 @@ int internal_bg(char **args) {
  *  
  *  
  *
- * 
+ *  argc:
+ *  argv: array en el que se guarda la línea que ejecuta el minishell
  * 
  *
  * retorna: Siempre devuelve 0.
