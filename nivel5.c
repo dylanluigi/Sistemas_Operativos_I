@@ -121,19 +121,21 @@ char *read_line(char *line) {
  */
 
 int jobs_list_add(pid_t pid, char *cmd, char estado) {
-    printf("Debug: Adding job with PID %d\n", pid);
-        if (n_job< N_JOBS) { // Empty slot found
-            jobs_list[n_job].pid = pid;
-            strncpy(jobs_list[n_job].cmd, cmd, COMMAND_LINE_SIZE - 1);
-            jobs_list[n_job].cmd[COMMAND_LINE_SIZE - 1] = '\0';
-            jobs_list[n_job].estado = estado;
-            jobs_list[n_job].job_number = n_job; // Assign job number
-            n_job++;
-            return 1; 
-        }else{
-            return -1; // No empty slot found
-        }
+  
+  n_job++;
+  if (n_job < N_JOBS) {
+    jobs_list[n_job].pid = pid;
+    strncpy(jobs_list[n_job].cmd, cmd, COMMAND_LINE_SIZE - 1);
+    jobs_list[n_job].cmd[COMMAND_LINE_SIZE - 1] = '\0';
+    jobs_list[n_job].estado = estado;
+    jobs_list[n_job].job_number = n_job;
+    printf("Job %s added to job_list with index %d\n", cmd, n_job);
+    return 1;
+  } else {
+    return -1; // No empty slot found
+  }
 }
+
 
 /*
  * Función: jobs_list_remove() 
@@ -167,7 +169,7 @@ int jobs_list_remove(int pos) {
  */
 
 int jobs_list_find(pid_t pid) {
-    for (int i = 0; i < n_job+1; i++) {
+    for (int i = 1; i < n_job+1; i++) {
         if (jobs_list[i].pid == pid) {
             return i; // Return pointer to the found job
         }
@@ -192,38 +194,40 @@ int jobs_list_find(pid_t pid) {
 int execute_line(char *line) {
     char *args[ARGS_SIZE];
     int background;
+    char *saved_line = line;
     pid_t pid;
-    printf("Current line to be executed: %s", line);
+
     int num_args = parse_args(args, line);
 
     if (num_args==0)
     {
         return 0;
     }
-    
+
+    int valorcheck = check_internal(args);
+    if (valorcheck == 1 || valorcheck == -1)
+    {
+        return 0;
+    }    
 
     background = is_background(args); // Check for background execution
 
 
-    int valorcheck=check_internal(args);
-    if (valorcheck == 1||valorcheck==-1) {
-        return 0; 
-    }
-
     pid = fork();
     if (pid == 0) {
-        
         signal(SIGCHLD, SIG_DFL);
         signal(SIGINT, SIG_IGN);  // Ignore SIGINT (Ctrl+C)
         signal(SIGTSTP, SIG_IGN); // Ignore SIGTSTP (Ctrl+Z)
         execvp(args[0], args);
         printf("%s: no se encontro la orden.\n", args[0]);
         exit(-1);
+
     } else if (pid > 0) {
         
        if (background) {
             printf("[Running in background] PID: %d\n", pid);
-            jobs_list_add(pid, line, 'E'); // Add job to jobs_list
+            jobs_list_add(pid, saved_line, 'E'); // Add job to jobs_list
+            printf("[Added job %s to job_list with PID %d and index of job %d]\n", saved_line,pid,n_job);
         } else {
             // Foreground process
             jobs_list[0].pid = pid;
@@ -512,10 +516,8 @@ int internal_source(char **args) {
  */
 int internal_jobs() {
     printf("ID\tPID\tStatus\tCommand\n");
-    for (int i = 0; i < n_job; i++) {
-        if (jobs_list[i].estado != 'N') { // Check if the job is active
-            printf("[%d]\t%d\t%c\t%s\n", jobs_list[i].job_number, jobs_list[i].pid, jobs_list[i].estado, jobs_list[i].cmd);
-        }
+    for (int i = 1; i <= n_job; i++) {
+    printf("[%d]\t%d\t%c\t%s\n", jobs_list[i].job_number, jobs_list[i].pid, jobs_list[i].estado, jobs_list[i].cmd);
     }
     return 1;
 }
@@ -605,35 +607,26 @@ void reaper(int signum)
  *
  */
 void ctrlc(int signum) {
-    signal(SIGINT, ctrlc);
-    if(DEBUG_FLAGS[3]==1){
-            printf("\n[Soy el proceso con PID %d (%s), el proceso en foreground es %d (%s)]\n",getpid(),mi_shell,jobs_list[0].pid,jobs_list[0].cmd);
-    }
+    signal(SIGINT, ctrlc); // Re-establish the signal handler
+
     if (jobs_list[0].pid > 0) {
-        if(strcmp(mi_shell,jobs_list[0].cmd)!=0){
-            if(DEBUG_FLAGS[3]==1){
-                printf("[Señal %d enviada a %d (%s) por %d (%s)]\n",signum,jobs_list[0].pid,jobs_list[0].cmd,getpid(),mi_shell);
-
-            }
-            kill(jobs_list[0].pid, SIGTERM);  // Terminate the foreground process
-            jobs_list[0].pid = 0;             // Reset the foreground process PID
-            jobs_list[0].estado = 'N';        // Reset the state
-        }else{
-            if(DEBUG_FLAGS[3]==1){
-                printf("[Señal SIGTERM no enviada debido a que el proceso en foreground es el shell");
-
-            }
+        if (strcmp(mi_shell, jobs_list[0].cmd) != 0) {
+            printf("[Señal %d enviada a %d (%s) por %d (%s)]\n", signum, jobs_list[0].pid, jobs_list[0].cmd, getpid(), mi_shell);
+            kill(jobs_list[0].pid, SIGTERM); // Terminate the foreground process
+            jobs_list[0].pid = 0; // Reset the foreground process PID
+            jobs_list[0].estado = 'N'; // Reset the state
+        } else {
+            printf("[Señal SIGTERM no enviada debido a que el proceso en foreground es el shell]\n");
         }
     } else {
-        if(DEBUG_FLAGS[3]==1){
-            printf("[Señal %d no enviada a %d (%s) debido a que no hay proceso en foreground]\n",signum,getpid(),mi_shell);
-
-        }
-        printf("\n");
-        imprimir_prompt();                // Re-print the prompt
-        fflush(stdout);
+        printf("[Señal %d no enviada a %d (%s) debido a que no hay proceso en foreground]\n", signum, getpid(), mi_shell);
     }
+    
+    printf("\n");
+    imprimir_prompt(); // Re-print the prompt
+    fflush(stdout);
 }
+
 
 /*
  * Función:ctrlz()  
@@ -646,22 +639,23 @@ void ctrlc(int signum) {
  */
 void ctrlz(int signum) {
     signal(SIGTSTP, ctrlz);
-    printf("Debug: ctrlz called\n");
 
     if (jobs_list[0].pid > 0) {
         if (strcmp(mi_shell, jobs_list[0].cmd) != 0) {
             kill(jobs_list[0].pid, SIGTSTP); // Send SIGTSTP to the foreground job
+            printf("[Sent STP signal to PID %d]",jobs_list[0].pid);
+
             if (DEBUG_FLAGS[4] == 1) {
                 printf("\n[+] Job detained: %s\n", jobs_list[0].cmd);
             }
-
+            jobs_list[0].estado='D';
             // Add to jobs_list as 'Detained' before resetting jobs_list[0]
-            jobs_list_add(jobs_list[0].pid, jobs_list[0].cmd, 'D');
+            jobs_list_add(jobs_list[0].pid, jobs_list[0].cmd, jobs_list[0].estado);
             
             // Resetting jobs_list[0]
             jobs_list[0].pid = 0;
             jobs_list[0].estado = 'N';
-            memset(jobs_list[0].cmd, 0, sizeof(jobs_list[0].cmd));
+            memset(jobs_list[0].cmd, '\0', sizeof(jobs_list[0].cmd));
         } else {
             if (DEBUG_FLAGS[4] == 1) {
                 printf("[Señal SIGSTOP no enviada debido a que el proceso en foreground es el shell]\n");
@@ -696,7 +690,7 @@ int main(int argc, char *argv[]) {
     // Initialization of jobs_list[0]
     jobs_list[0].pid = 0;
     jobs_list[0].estado = 'N';
-    memset(jobs_list[0].cmd, 0, sizeof(jobs_list[0].cmd));
+    memset(jobs_list[0].cmd, '\0', sizeof(jobs_list[0].cmd));
 
     // Set signal handlers
     signal(SIGCHLD, reaper);
