@@ -220,10 +220,6 @@ int jobs_list_find(pid_t pid) {
  * 
  *
  * retorna: siempre 0
- *
- * 
- * 
- *
  * 
  */
 int execute_line(char *line) {
