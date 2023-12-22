@@ -789,7 +789,7 @@ void ctrlz(int signum) {
  *  el memset lo usamos para inicializar a /0 el atributo cmd de jobs_list.
  *  
  *  
- *  argc:
+ *  argc: calcula el espacio en memoria para los argumentos
  *  argv: array en el que se guarda la línea que ejecuta el minishell
  * 
  *
