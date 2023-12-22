@@ -642,7 +642,7 @@ void ctrlz(int signum) {
 
     if (jobs_list[0].pid > 0) {
         if (strcmp(mi_shell, jobs_list[0].cmd) != 0) {
-            kill(jobs_list[0].pid, SIGTSTP); // Send SIGTSTP to the foreground job
+            kill(jobs_list[0].pid, SIGSTOP); // Send SIGTSTP to the foreground job
             printf("[Sent STP signal to PID %d]",jobs_list[0].pid);
 
             if (DEBUG_FLAGS[4] == 1) {
