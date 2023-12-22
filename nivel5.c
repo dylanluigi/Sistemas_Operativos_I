@@ -257,7 +257,10 @@ int execute_line(char *line) {
         exit(-1);
 
     } else if (pid > 0) {
-        
+        if (DEBUG_FLAGS[2] == 1)
+        {
+            printf("[execute_line()→ PID padre: %d (%s)]\n", getpid(), mi_shell);
+        }
        if (background) {
             printf("[Running in background] PID: %d\n", pid);
             jobs_list_add(pid, saved_line, 'E'); // Add job to jobs_list
