@@ -382,14 +382,40 @@ int check_internal(char **args)
 }
 
 /*
- * Función:
- * -------------------
+ * Función:  internal_cd
+ *
+ * Esta función será realizará el comando cd, dicho comando nos cambiará el directorio de trabajo.
+ * Lo primero que realizaremos es dos arrays con dimension COMMAND_LINE_SIZE. El primero lo utilizaremos
+ * para comprobar si hemos cambiado de directorio. En el segundo, almacenaremos el directorio indicado
+ * según los casos. Los casos son(hay que recalcar que cambiamos de directorio mediante la función chdir
+ * en todos):
+ *
+ * ---- CD para volver al directorio home--------
+ *
+ *  Este cd no tiene un segundo argumento, es decir el comando sería así: cd NULL,
+ *  para este caso simplemente detectamos que no hay segundo argumento y almacenamos
+ * en la variable dir el directorio home, mediante la función getenv que nos devuelve
+ * la variable de entorno indicada en el parámetro. Posteriormente comprobamos
+ * si dir tiene algún contenido, y cambiamos de directorio(se hace en la línea 232)
+ *
+ * -------- CD para un directorio específico---------
+ * Entraremos en un bucle en el que comprobaremos si hay comillas en los argumentos,
+ * saldremos de dicho bucle sin ningún cambio y el if de la \ no se cumplirá, así que
+ * no tocaremos los argumentos y haremos chdir al final.
  *
  *
- * dest:
- * src:
+ *---------- CD de caso avanzado----------------
  *
- * retorna:
+ * Este cd admite el paso de directorios con espacios mediante una escritura especial
+ * en este caso manejaremos estos casos : cd 'mini shell', cd "mini shell", cd mini/ shell.
+ *
+ * Primero comprobaremos las comillas, haremos un bucle en el que pasaremos argumento por
+ * argumento detectando si hay comillas al inicio o al final.
+ *
+ *
+ * args: array de arrays en el que están los tokens
+ *
+ * retorna: devuelve 1, -1 si hay error
  */
 int internal_cd(char **args)
 {
