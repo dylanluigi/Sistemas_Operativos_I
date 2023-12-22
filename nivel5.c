@@ -51,7 +51,7 @@ int internal_fg(char **args);
  */
 int  n_job=0;
 static char mi_shell[COMMAND_LINE_SIZE]; 
-int DEBUG_FLAGS[]={0,0,1,1,1};
+int DEBUG_FLAGS[]={0,0,0,0,1};
 
 /*
  * Struct:  info_job
