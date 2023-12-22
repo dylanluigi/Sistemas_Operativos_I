@@ -305,14 +305,18 @@ int is_background(char **args) {
 
 
 /*
- * Función:  
+ * Función: parse_args 
  * -------------------
+ * Trocea la linea obtenida en tokens mediante la función strtok, en nuestro caso los tokens
+ * estarán delimitados por los caracteres espacio, tab, salto de línea y return. Por otro lado,
+ * tenemos en cuenta que el # representa un comentario, por tanto ignoramos los tokens posteriores a 
+ * este carácter.
  * 
  *
- * dest:
- * src:
+ * args: array de arrays en el que introduciremos los tokens
+ * line: linea introducida en consola (stdin)
  *
- * retorna:
+ * retorna: el número de tokens encontrados
  */
 int parse_args(char **args, char *line) {
     int num_tokens = 0;
