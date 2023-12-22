@@ -217,6 +217,37 @@ int parse_args(char **args, char *line) {
 }
 
 /*
+ * Función: check_internal
+ * -------------------
+ * Función encargada de detectar si el comando pasado es interno
+ * simplemente comprueba si el primer argumento es igual al comando interno,
+ * en el caso que lo sea realizaremos dicha función. En el caso de que el comando
+ * no sea ninguna función interna se devolverá 0.
+ *
+ *
+ * args: array de arrays con los tokens
+ *
+ *
+ * retorna: devuelve 1 en el caso de que sea interna y vaya bien, -1 si hay un error dentro de la instrucción y 2 en el caso de que no lo sea.
+ */
+int check_internal(char **args) {
+    if(strcmp(args[0],"exit")==0){
+        exit(0);
+    }else{
+        if (strcmp(args[0], "cd") == 0) {
+        return internal_cd(args);
+    } else if (strcmp(args[0], "export") == 0) {
+        return internal_export(args);
+    } else if (strcmp(args[0], "source") == 0) {
+        return internal_source(args);
+    } else if (strcmp(args[0], "jobs") == 0) {
+        return internal_jobs();
+    }
+    return 2;
+    }
+}
+
+/*
  * Función:  internal_cd
  *
  * Esta función será realizará el comando cd, dicho comando nos cambiará el directorio de trabajo.
@@ -251,63 +282,6 @@ int parse_args(char **args, char *line) {
  * args: array de arrays en el que están los tokens
  *
  * retorna: devuelve 1, -1 si hay error
- */
-int check_internal(char **args) {
-    if(strcmp(args[0],"exit")==0){
-        exit(0);
-    }else{
-        if (strcmp(args[0], "cd") == 0) {
-        return internal_cd(args);
-    } else if (strcmp(args[0], "export") == 0) {
-        return internal_export(args);
-    } else if (strcmp(args[0], "source") == 0) {
-        return internal_source(args);
-    } else if (strcmp(args[0], "jobs") == 0) {
-        return internal_jobs();
-    }
-    return 2;
-    }
-}
-
-/*
- * Función:  internal_cd
- * 
- * Esta función será realizará el comando cd, dicho comando nos cambiará el directorio de trabajo.
- * Lo primero que realizaremos es dos arrays con dimension COMMAND_LINE_SIZE. El primero lo utilizaremos
- * para comprobar si hemos cambiado de directorio. En el segundo, almacenaremos el directorio indicado
- * según los casos. Los casos son(hay que recalcar que cambiamos de directorio mediante la función chdir
- * en todos):
- * 
- * ---- CD para volver al directorio home--------
- * 
- *  Este cd no tiene un segundo argumento, es decir el comando sería así: cd NULL,
- *  para este caso simplemente detectamos que no hay segundo argumento y almacenamos
- * en la variable dir el directorio home, mediante la función getenv que nos devuelve
- * la variable de entorno indicada en el parámetro. Posteriormente comprobamos
- * si dir tiene algún contenido, y cambiamos de directorio(se hace en la línea 232)
- * 
- * -------- CD para un directorio específico---------
- *  
- *  Este cd tiene un formato de tipo : cd directorio, por tanto
- *  lo que realizaremos es comprobar si hay segundo argumento. Nosotros
- *  no nos preocupamos de comprobar si dicho argumento es un directorio, sino que
- *  ejecutamos chdir y si da error significa que no será un buen argumento.
- *
- *---------- CD de caso avanzado----------------
- *
- * Este cd admite el paso de directorios con espacios mediante una escritura especial
- * en este caso manejaremos estos casos : cd 'mini shell', cd "mini shell", cd mini/ shell.
- * Para detectar este caso lo único que hemos hecho es poner los dos anteriores casos antes, de
- * tal manera que si no es ninguno de los dos, por descarte será el tercero. 
- * 
- *  Lo que hemos decidido hacer en todos los casos es: concatenar los argumentos(mediante strcat) 
- *  ponerles espacio y meterlos en la variable dir  de tal manera que dir quedaría así en los anteriores
- *  anteriores ejemplos: 'mini shell', "mini shell", mini/ shell. Posteriormente,
- * 
- *  
- * args: array de arrays en el que están los tokens
- *
- * retorna:
  */
 int internal_cd(char **args) {
     char cwd[COMMAND_LINE_SIZE];
