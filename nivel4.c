@@ -611,14 +611,22 @@ void ctrlc(int signum) {
 
 
 /*
- * Función:  
+ * Función:  main
  * -------------------
+ *  El main de este nivel ya contiene más elementos
+ *  aparte del bucle de funcionamiento del mini_shell.
+ * 
+ *  Antes de este bucle guardamos el comando de ejecución del minishell
+ *  (el cual visualizaremos en execute_line). Posteriormente, inicializaremos
+ *  los valores para la posición 0(foreground) del jobs_list. Por otro lado, 
+ *  el memset lo usamos para inicializar a /0 el atributo cmd de jobs_list.
  * Añadimos las llamadas de las señales respectivas a cada metodo.
  *
- * dest:
- * src:
- *
- * retorna:
+ * 
+ * 
+ * argc:
+ * argv: array en el que se guarda la línea que ejecuta el minishell
+ * retorna: siempre 0
  */
 
 
