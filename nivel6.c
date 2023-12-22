@@ -267,7 +267,10 @@ int execute_line(char *line)
             jobs_list[0].estado = 'E';
             strncpy(jobs_list[0].cmd, line, COMMAND_LINE_SIZE - 1);
             jobs_list[0].cmd[COMMAND_LINE_SIZE - 1] = '\0';
-
+            if (DEBUG_FLAGS[2] == 1)
+            {
+                printf("[execute_line()→ PID hijo: %d (%s)]\n", pid, jobs_list[0].cmd);
+            }
             // Wait for the foreground process to finish
             if (jobs_list[0].pid > 0)
             {
