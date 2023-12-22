@@ -367,14 +367,28 @@ int internal_cd(char **args) {
 
 
 /*
- * Función:  
- * -------------------
+ * Función:  internal_export
+ * 
+ * Esta función lo que hace es modificar una variable de entorno con el valor pasado
+ * por parámetro, el formato sería así: export HOME=hola. 
+ * 
+ * En el caso de que no haya segundo argumento, significará que hay un error de sintaxis
+ * por tanto lo notificaremos al usuario. 
+ * 
+ * Si tiene segundo argumento, lo que haremos es:
+ * guardar el nombre en una variable y mediante la función strchar, tener un puntero que apunte
+ * al = , lo que significará que los siguientes caracteres serán el valor pasado. Posteriormente,
+ * detectaremos otro error de sintaxis, en el cual nombre es igual al valor dado por el usuario.
+ * 
+ * Por otro lado, si no hay errores, pondremos que el = será /0(para facilitar la parte del nombre) y 
+ * nos moveremos al siguiente caracter (el primero del valor). Mediante la función getenv conseguiremos
+ * la variable pedida y mediante setenv cambiaremos su contenido.
  * 
  *
- * dest:
- * src:
+ * args = array de arrays en el que tenemos todos los tokens
+ * 
  *
- * retorna:
+ * retorna:-1 si da error, 1 si funciona correctamente.
  */
 int internal_export(char **args) {
     if (args[1] == NULL) {
