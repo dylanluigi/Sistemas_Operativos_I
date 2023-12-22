@@ -197,7 +197,9 @@ int jobs_list_find(pid_t pid) {
  * 
  * Ahora que ya tenemos todo esto, comprobaremos si es un comando interno mediante
  * check_internals y en el caso de que lo sea será tratado por esta función.
- * 
+ 
+ * Llamar a la función is_background() para analizar si en la línea de comandos hay un & al final.
+ 
  * En el caso de que no tengamos un comando interno, crearemos un hijo y tendremos
  * dos ramas de procesamiento:
  * 
@@ -209,7 +211,8 @@ int jobs_list_find(pid_t pid) {
  * y la segunda cuando presionemos el Control ^C.
  *
  * Proceso PADRE:
- *  Actualizará el jobs_list[0], debido a que el proceso hijo 
+ *  Comprobaremos si estamos en el backgorud si es así metemos el trabajo en el
+ *  jobs_list con el metodo add sino, actualizará el jobs_list[0], debido a que el proceso hijo 
  *  estará ejecutando el comando. Después, esperará a que el hijo acabe 
  *  mediante wait y actualizará el jobs_list[0], porque habremos acabado.
  * Más tarde en el proceso padre pondremos un
