@@ -227,14 +227,18 @@ int parse_args(char **args, char *line) {
 }
 
 /*
- * Función:  
+ * Función: check_internal
  * -------------------
+ * Función encargada de detectar si el comando pasado es interno
+ * simplemente comprueba si el primer argumento es igual al comando interno,
+ * en el caso que lo sea realizaremos dicha función. En el caso de que el comando
+ * no sea ninguna función interna se devolverá 0.
  * 
  *
- * dest:
- * src:
+ * args: array de arrays con los tokens 
+ * 
  *
- * retorna:
+ * retorna: devuelve 1 en el caso de que sea interna y vaya bien, -1 si hay un error dentro de la instrucción y 2 en el caso de que no lo sea.
  */
 int check_internal(char **args) {
     if(strcmp(args[0],"exit")==0){
