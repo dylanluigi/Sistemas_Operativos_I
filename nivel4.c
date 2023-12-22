@@ -631,7 +631,7 @@ void ctrlc(int signum) {
  *
  * 
  * 
- * argc:
+ * argc: calcula el espacio en memoria para los argumentos
  * argv: array en el que se guarda la línea que ejecuta el minishell
  * retorna: siempre 0
  */
