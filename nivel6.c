@@ -199,19 +199,45 @@ int jobs_list_find(pid_t pid)
 }
 
 /*
- * Función:
+ * Función:execute_line
  * -------------------
  *
+ * Función encargada de ejecutar la línea. En este nivel ya implementamos la
+ * ejecución de comandos externos. Al inicio, lo que hacemos es guardar la
+ * linea dada en una variable auxiliar debido a que parse_args altera su contenido.
+ * Después de esto llamaremos a parse_args, para que los tokens estén dentro de args.
+ *
+ * Ahora que ya tenemos todo esto, comprobaremos si es un comando interno mediante
+ * check_internals y en el caso de que lo sea será tratado por esta función.
+
+ * Llamar a la función is_background() para analizar si en la línea de comandos hay un & al final.
+
+ * En el caso de que no tengamos un comando interno, crearemos un hijo y tendremos
+ * dos ramas de procesamiento:
+ *
+ * Proceso HIJO:
+ *  Realiza la llamada al sistema execvp(args[0], args)
+ *  para ejecutar el comando externo solicitado.
  * Añadiremos en el proceso hijo las llamadas a dos señales SIGCHLD y SIGINT.
  * La primera se ejecutará cuando un proceso hijo haya finalizado con el metodo reaper()
- * y la segunda cuando presionemos el Control ^C.Más tarde en el proceso padre pondremos un
+ * y la segunda cuando presionemos el Control ^C.
+ *
+ * Proceso PADRE:
+ *  Comprobaremos si estamos en el backgorud si es así metemos el trabajo en el
+ *  jobs_list con el metodo add sino, actualizará el jobs_list[0], debido a que el proceso hijo
+ *  estará ejecutando el comando. Después, esperará a que el hijo acabe
+ *  mediante wait y actualizará el jobs_list[0], porque habremos acabado.
+ * Más tarde en el proceso padre pondremos un
  * pause, cuando un proceso hijo se este ejecutando en primer plano para esperar a que llegue
  * la señal.
  *
+ * line : puntero que apunta a la línea que pasamos por consola(stdin)
  *
  *
+ * retorna: siempre 0
  *
  */
+
 int execute_line(char *line)
 {
     char *args[ARGS_SIZE];
@@ -313,14 +339,18 @@ int is_background(char **args)
 }
 
 /*
- * Función:
+ * Función: parse_args
  * -------------------
+ * Trocea la linea obtenida en tokens mediante la función strtok, en nuestro caso los tokens
+ * estarán delimitados por los caracteres espacio, tab, salto de línea y return. Por otro lado,
+ * tenemos en cuenta que el # representa un comentario, por tanto ignoramos los tokens posteriores a
+ * este carácter.
  *
  *
- * dest:
- * src:
+ * args: array de arrays en el que introduciremos los tokens
+ * line: linea introducida en consola (stdin)
  *
- * retorna:
+ * retorna: el número de tokens encontrados
  */
 int parse_args(char **args, char *line)
 {
@@ -348,16 +378,19 @@ int parse_args(char **args, char *line)
 
     return num_tokens;
 }
-
 /*
- * Función:
+ * Función: check_internal
  * -------------------
+ * Función encargada de detectar si el comando pasado es interno
+ * simplemente comprueba si el primer argumento es igual al comando interno,
+ * en el caso que lo sea realizaremos dicha función. En el caso de que el comando
+ * no sea ninguna función interna se devolverá 0.
  *
  *
- * dest:
- * src:
+ * args: array de arrays con los tokens
  *
- * retorna:
+ *
+ * retorna: devuelve 1 en el caso de que sea interna y vaya bien, -1 si hay un error dentro de la instrucción y 2 en el caso de que no lo sea.
  */
 int check_internal(char **args)
 {
@@ -522,14 +555,28 @@ int internal_cd(char **args)
 }
 
 /*
- * Función:
- * -------------------
+ * Función:  internal_export
+ *
+ * Esta función lo que hace es modificar una variable de entorno con el valor pasado
+ * por parámetro, el formato sería así: export HOME=hola.
+ *
+ * En el caso de que no haya segundo argumento, significará que hay un error de sintaxis
+ * por tanto lo notificaremos al usuario.
+ *
+ * Si tiene segundo argumento, lo que haremos es:
+ * guardar el nombre en una variable y mediante la función strchar, tener un puntero que apunte
+ * al = , lo que significará que los siguientes caracteres serán el valor pasado. Posteriormente,
+ * detectaremos otro error de sintaxis, en el cual nombre es igual al valor dado por el usuario.
+ *
+ * Por otro lado, si no hay errores, pondremos que el = será /0(para facilitar la parte del nombre) y
+ * nos moveremos al siguiente caracter (el primero del valor). Mediante la función getenv conseguiremos
+ * la variable pedida y mediante setenv cambiaremos su contenido.
  *
  *
- * dest:
- * src:
+ * args = array de arrays en el que tenemos todos los tokens
  *
- * retorna:
+ *
+ * retorna:-1 si da error, 1 si funciona correctamente.
  */
 int internal_export(char **args)
 {
@@ -578,14 +625,24 @@ int internal_export(char **args)
 }
 
 /*
- * Función:
- * -------------------
+ * Función: internal_source
+ *
+ * Esta función lee un fichero y ejecuta los comandos encontrados
+ * en el mismo.
+ *
+ * Para hacer esto, primero comprobamos si existe segundo token,
+ * en el caso de que exista, abrimos el fichero con el segundo de argumento,
+ * si nos pasan algo que no sea un fichero la apertura nos dará error, si
+ * esto no ocurre haremos un bucle en el que iremos leyendo línea por línea
+ * el fichero. Después de esto, hacemos un fflush( para vaciar el buffer)
+ * y ejecutamos la linea leída.
  *
  *
- * dest:
- * src:
  *
- * retorna:
+ *
+ *
+ *
+ * retorna: 1 si funciona, -1 si hay un error.
  */
 int internal_source(char **args)
 {
@@ -917,14 +974,22 @@ int is_output_redirection(char **args) {
 
 
 /*
- * Función:
+ * Función:  main
  * -------------------
- * Añadimos las llamadas de las señales respectivas a cada metodo.
+ *  El main de este nivel ya contiene más elementos
+ *  aparte del bucle de funcionamiento del mini_shell.
  *
- * dest:
- * src:
+ *  Antes de este bucle guardamos el comando de ejecución del minishell
+ *  (el cual visualizaremos en execute_line). Posteriormente, inicializaremos
+ *  los valores para la posición 0(foreground) del jobs_list. Por otro lado,
+ *  el memset lo usamos para inicializar a /0 el atributo cmd de jobs_list.
  *
- * retorna:
+ *
+ *  argc: calcula el espacio en memoria para los argumentos
+ *  argv: array en el que se guarda la línea que ejecuta el minishell
+ *
+ *
+ * retorna: Siempre devuelve 0.
  */
 
 int main(int argc, char *argv[])
