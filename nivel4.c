@@ -38,7 +38,7 @@ void ctrlc(int signum);
  * Declaraciones de variables
  */
 static char mi_shell[COMMAND_LINE_SIZE]; 
-int DEBUG_FLAGS[]={0,0,1,1};
+int DEBUG_FLAGS[]={0,0,0,1};
 
 /*
  * Struct:  info_job
