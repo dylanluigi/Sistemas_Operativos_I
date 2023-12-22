@@ -211,7 +211,7 @@ int execute_line(char *line) {
     if (pid == 0) {
         
         signal(SIGCHLD, SIG_DFL);
-        signal(SIGINT, SIG_DFL);
+        signal(SIGINT, SIG_IGN);
         signal(SIGTSTP, SIG_DFL);
         execvp(args[0], args);
         printf("%s: no se encontro la orden.\n", args[0]);
