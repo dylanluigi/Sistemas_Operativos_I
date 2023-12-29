@@ -9,6 +9,8 @@
 #include <pthread.h>
 
 #define NUM_THREADS  10
+pthread_mutex_t semaforo=PTHREAD_MUTEX_INITIALIZER;
+
 pthread_t hilos [10];
 // structuras para gestor de pila
 struct my_stack_node
@@ -22,6 +24,7 @@ struct my_stack
     int size;                  // tamaño de data, nos lo pasarán por parámetro
     struct my_stack_node *top; // apunta al nodo de la parte superior
 };
+struct my_stack *pila;
 /*
  * Función:  my_stack_init
  * -----------------------
@@ -46,6 +49,7 @@ int my_stack_len(struct my_stack *stack);
 int my_stack_purge(struct my_stack *stack);
 struct my_stack *my_stack_read(char *filename);
 int my_stack_write(struct my_stack *stack, char *filename);
+void *worker(void *ptr);
 /*
  * Función:  my_stack_push
  * -----------------------
@@ -348,7 +352,20 @@ struct my_stack *my_stack_read(char *filename)
 
     return new_stack;
 }
-
+void *worker(void *ptr){
+    void *data;
+    int N=1000000;
+    
+    for(;N;N--){
+        
+        pthread_mutex_lock(&semaforo); 
+        data=my_stack_pop(pila);
+        data++;
+        my_stack_push(pila,data);
+        pthread_mutex_unlock(&semaforo);
+        pthread_exit(NULL);
+    }
+}
 int main(int argc, char *argv[])
 {
     if (argv[1]==NULL){
@@ -356,7 +373,7 @@ int main(int argc, char *argv[])
     }
     // Comprobamos si la pila existe
     int existe = access(argv[1], F_OK);
-     struct my_stack *pila;
+     
 
     if (!existe)
     //si no existe la inicializamos a 0
@@ -386,7 +403,7 @@ int main(int argc, char *argv[])
 
     // PASO 2
    for(int i=0;i<NUM_THREADS;i++){
-    pthread_create(hilos[i],NULL,worker,NULL);
+    pthread_create(&hilos[i],NULL,worker,NULL);
    }
 }
 
