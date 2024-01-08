@@ -1,3 +1,18 @@
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <errno.h>
+
+#define NUM_THREADS 3
+#define ITERATIONS 5
+
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+struct my_stack *stack;
+/* lib.h librería con las funciones equivalentes a las
+de <string.h> y las funciones y estructuras para el
+manejo de una pila */
+
 #include <stdio.h>     /* para printf en depurarión */
 #include <string.h>    /* para funciones de strings  */
 #include <stdlib.h>    /* Funciones malloc(), free(), y valor NULL */
@@ -6,25 +21,36 @@
 #include <sys/types.h> /* Definiciones de tipos de datos como size_t*/
 #include <unistd.h>    /* Funciones read(), write(), close()*/
 #include <errno.h>     /* COntrol de errores (errno) */
-#include <pthread.h>
 
-#define NUM_THREADS  10
-pthread_mutex_t semaforo=PTHREAD_MUTEX_INITIALIZER;
+//declaraciones funciones libreria string
+size_t my_strlen(const char *str);
+int my_strcmp(const char *str1, const char *str2);
+char *my_strcpy(char *dest, const char *src);
+char *my_strncpy(char *dest, const char *src, size_t n);
+char *my_strcat(char *dest, const char *src);
+char *my_strchr(const char *s, int c);
 
-pthread_t hilos [10];
-// structuras para gestor de pila
-struct my_stack_node
-{ // nodo de la pila (elemento)
+// char *my_strncat(char *dest, const char *src, size_t n);
+
+//structuras para gestor de pila
+struct my_stack_node {      // nodo de la pila (elemento)
     void *data;
     struct my_stack_node *next;
 };
 
-struct my_stack
-{                              // pila
-    int size;                  // tamaño de data, nos lo pasarán por parámetro
-    struct my_stack_node *top; // apunta al nodo de la parte superior
-};
-struct my_stack *pila;
+struct my_stack {   // pila
+    int size;       // tamaño de data, nos lo pasarán por parámetro
+    struct my_stack_node *top;  // apunta al nodo de la parte superior
+};  
+
+//declaraciones funciones gestor de pila
+struct my_stack *my_stack_init(int size);
+int my_stack_push(struct my_stack *stack, void *data);
+void *my_stack_pop(struct my_stack *stack);
+int my_stack_len(struct my_stack *stack);
+int my_stack_purge(struct my_stack *stack); 
+struct my_stack *my_stack_read(char *filename);
+int my_stack_write(struct my_stack *stack, char *filename);
 /*
  * Función:  my_stack_init
  * -----------------------
@@ -351,60 +377,85 @@ struct my_stack *my_stack_read(char *filename)
     }
 
     return new_stack;
-}
-void *worker(void *ptr){
-    void *data;
-    int N=1000000;
-    
-    for(;N;N--){
+}    
+
+void *worker(void *ptr) {
+   
+    pthread_t id = pthread_self();
+    for (int i = 0; i < ITERATIONS; i++) {
+       pthread_mutex_lock(&mutex);
+       printf("Soy el hilo %lu ejecutando pop\n", id); 
+       int *data = (int *)my_stack_pop(stack);
+       if(data!=NULL){
+       (*data)++;
+       }
+       pthread_mutex_unlock(&mutex);
+       sleep(0.001);
+       pthread_mutex_lock(&mutex);
+       if(data!=NULL){
+       printf("Soy el hilo %lu ejecutando push\n", id);
+       my_stack_push(stack, data);
+       }
+       pthread_mutex_unlock(&mutex);
         
-        pthread_mutex_lock(&semaforo); 
-        data=my_stack_pop(pila);
-        data++;
-        my_stack_push(pila,data);
-        pthread_mutex_unlock(&semaforo);
-        pthread_exit(NULL);
+        
+        
     }
+    pthread_exit(NULL);
 }
-int main(int argc, char *argv[])
-{
-    if (argv[1]==NULL){
-        printf("Formato incorrecto: ./[programa] [nombre_fichero]");
+
+int main(int argc, char *argv[]) {
+    printf("Threads: %d, Iterations: %d\n", NUM_THREADS, ITERATIONS);
+    if (argc != 2) {
+        fprintf(stderr, "USAGE: %s <stack_file>\n", argv[0]);
+        return 1;
     }
-    // Comprobamos si la pila existe
-    int existe = access(argv[1], F_OK);
-     
 
-    if (!existe)
-    //si no existe la inicializamos a 0
-    {
+    char *filename = argv[1];
 
-        struct my_stack *pila = my_stack_init(NUM_THREADS);
-        for (int i = 0; i < 10; i++)
-        {
-
-            int *dato = malloc(sizeof(int));
-            dato = 0;
-            my_stack_push(pila, dato);
+    // Step 1: Prepare the stack
+    stack = my_stack_read(filename);
+    if (stack == NULL) {
+        // Stack does not exist, create it
+        stack = my_stack_init(sizeof(int));
+        for (int i = 0; i < NUM_THREADS; ++i) {
+            int *data = (int *)malloc(sizeof(int));
+            *data = 0;
+            my_stack_push(stack, data);
         }
-    }else{
-        //si existe pero no hay 10 elementos, metemos los restantes
-        struct my_stack *pila= my_stack_read(argv[1]);
-        int longitud= my_stack_len(pila);
-        int auxiliar;
-        if ((auxiliar=NUM_THREADS-longitud) > 0){
-            for (int i=auxiliar;auxiliar!=0;auxiliar--){
-                 int *dato = malloc(sizeof(int));
-                    dato = 0;
-                  my_stack_push(pila, dato);
-            }
+    } else {
+        // Fill stack to NUM_THREADS elements if necessary
+        while (my_stack_len(stack) < NUM_THREADS) {
+            int *data = (int *)malloc(sizeof(int));
+            *data = 0;
+            my_stack_push(stack, data);
         }
     }
 
-    // PASO 2
-   for(int i=0;i<NUM_THREADS;i++){
-    pthread_create(&hilos[i],NULL,worker,NULL);
-   }
+    // Step 2: Create threads
+    pthread_t threads[NUM_THREADS];
+    for (int i = 0; i < NUM_THREADS; ++i) {
+        printf("%d) Thread %lu created\n", i, threads[i]);
+        if (pthread_create(&threads[i], NULL, worker, NULL) != 0) {
+            perror("Failed to create the thread");
+        }
+    }
+
+    // Step 3: Wait for the threads to finish
+    for (int i = 0; i < NUM_THREADS; ++i) {
+        if (pthread_join(threads[i], NULL) != 0) {
+            perror("Failed to join the thread");
+        }
+    }
+
+    // Step 4: Dump stack to file and clean up
+    my_stack_write(stack, filename);
+    printf("Written elements from stack to file: %d\n", my_stack_len(stack));
+    int released_bytes = my_stack_purge(stack);
+    printf("Released bytes: %d\n", released_bytes);
+
+    pthread_mutex_destroy(&mutex);
+
+    printf("Bye from main\n");
+    return 0;
 }
-
-
