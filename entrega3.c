@@ -4,8 +4,8 @@
 #include <unistd.h>
 #include <errno.h>
 
-#define NUM_THREADS 3
-#define ITERATIONS 5
+#define NUM_THREADS 10
+#define ITERATIONS 1000000
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 struct my_stack *stack;
@@ -384,22 +384,20 @@ void *worker(void *ptr) {
     pthread_t id = pthread_self();
     for (int i = 0; i < ITERATIONS; i++) {
        pthread_mutex_lock(&mutex);
-       printf("Soy el hilo %lu ejecutando pop\n", id); 
+       //printf("Soy el hilo %lu ejecutando pop\n", id); 
        int *data = (int *)my_stack_pop(stack);
+       pthread_mutex_unlock(&mutex);
        if(data!=NULL){
        (*data)++;
        }
-       pthread_mutex_unlock(&mutex);
-       sleep(0.001);
+       
        pthread_mutex_lock(&mutex);
        if(data!=NULL){
-       printf("Soy el hilo %lu ejecutando push\n", id);
+       //printf("Soy el hilo %lu ejecutando push\n", id);
        my_stack_push(stack, data);
        }
        pthread_mutex_unlock(&mutex);
-        
-        
-        
+ 
     }
     pthread_exit(NULL);
 }
